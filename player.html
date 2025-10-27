@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Stream Player</title>
+  <link rel="stylesheet" href="player.css">
+</head>
+<body>
+  <div class="player-container">
+    <video id="video-player" controls autoplay></video>
+
+    <div class="stream-info-display" id="stream-info">
+      <div class="info-controls">
+        <button class="info-minimize-btn" id="minimize-btn" title="Minimize">−</button>
+        <button class="info-close-btn" id="close-btn" title="Close">×</button>
+      </div>
+      <div class="info-content" id="info-content">
+        <div class="info-line">Loading stream...</div>
+      </div>
+    </div>
+
+    <div class="controls-hint" id="controls-hint">
+      Press <kbd>F</kbd> for fullscreen • <kbd>Space</kbd> to play/pause • <kbd>Esc</kbd> to exit
+    </div>
+
+    <div class="error-message" id="error-message" style="display: none;">
+      <h2>Failed to Load Stream</h2>
+      <p id="error-text"></p>
+      <button onclick="window.close()">Close Window</button>
+    </div>
+  </div>
+
+  <script src="hls.min.js"></script>
+  <script src="player.js"></script>
+</body>
+</html>

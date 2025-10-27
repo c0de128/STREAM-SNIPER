@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Adaptive Stream Detector</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <h1>Adaptive Stream Detector</h1>
+
+    <!-- Tab Navigation -->
+    <div class="tab-navigation">
+      <button class="tab-btn active" data-tab="current">Current</button>
+      <button class="tab-btn" data-tab="history">History</button>
+      <button class="tab-btn" data-tab="stats">Statistics</button>
+      <button class="tab-btn" data-tab="about">About</button>
+    </div>
+
+    <!-- Current Tab -->
+    <div id="current-tab" class="tab-content active">
+      <!-- Search and Filters -->
+      <div class="toolbar">
+        <input type="text" id="search-input" placeholder="Search streams..." />
+        <select id="filter-type">
+          <option value="all">All Types</option>
+          <option value="m3u8">HLS (M3U8)</option>
+          <option value="m3u">M3U</option>
+          <option value="mpd">MPEG-DASH</option>
+          <option value="ism">Smooth Streaming</option>
+        </select>
+        <div class="detection-toggle-container">
+          <span class="toggle-label">Detection:</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="detection-toggle" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <div id="streams-container">
+        <div id="no-streams" class="message">
+          No streaming URLs detected on this page.
+        </div>
+        <div id="streams-list"></div>
+      </div>
+
+      <div id="actions-container">
+        <button id="copy-all-btn" class="action-btn">Copy All URLs</button>
+        <button id="export-btn" class="action-btn">Export</button>
+        <button id="clear-btn" class="action-btn secondary">Clear Current</button>
+      </div>
+    </div>
+
+    <!-- History Tab -->
+    <div id="history-tab" class="tab-content">
+      <div class="toolbar">
+        <input type="text" id="history-search-input" placeholder="Search history..." />
+        <button id="clear-history-btn" class="action-btn secondary small">Clear History</button>
+      </div>
+
+      <div id="history-container">
+        <div id="no-history" class="message">
+          No streams in history yet.
+        </div>
+        <div id="history-list"></div>
+      </div>
+    </div>
+
+    <!-- Statistics Tab -->
+    <div id="stats-tab" class="tab-content">
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="total-streams">0</div>
+          <div class="stat-label">Total Streams</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="current-session">0</div>
+          <div class="stat-label">This Session</div>
+        </div>
+      </div>
+
+      <div class="stats-section">
+        <h3>By Format</h3>
+        <div id="format-stats" class="stats-list"></div>
+      </div>
+
+      <div class="stats-section">
+        <h3>Top Domains</h3>
+        <div id="domain-stats" class="stats-list"></div>
+      </div>
+
+      <div class="stats-actions">
+        <button id="reset-stats-btn" class="action-btn secondary">Reset Statistics</button>
+      </div>
+    </div>
+
+    <!-- About Tab -->
+    <div id="about-tab" class="tab-content">
+      <div class="about-container">
+        <div class="about-section">
+          <h3>About This Extension</h3>
+          <p>Adaptive Stream Detector automatically identifies and captures streaming URLs on web pages. It supports multiple streaming formats including HLS (M3U8), MPEG-DASH (MPD), and Microsoft Smooth Streaming (ISM/ISMC).</p>
+          <p><strong>Version:</strong> 1.0</p>
+        </div>
+
+        <div class="about-section">
+          <h3>How to Use</h3>
+          <ul class="about-list">
+            <li><strong>Automatic Detection:</strong> Simply navigate to any page with streaming content. The extension badge will show the number of detected streams.</li>
+            <li><strong>Copy URLs:</strong> Click "Copy ▾" and select "Copy URL" to get the plain stream URL for pasting into players like VLC.</li>
+            <li><strong>Open in VLC:</strong> In VLC, go to Media → Open Network Stream (Ctrl+N), paste the URL, and click Play.</li>
+            <li><strong>Validation:</strong> Streams are automatically validated. Green checkmark (✓) means accessible, red X (✗) means unavailable.</li>
+            <li><strong>Quality Info:</strong> Click "Details" on M3U8/MPD streams to see available quality variants, resolutions, and bitrates.</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <h3>Copy Options Explained</h3>
+          <ul class="about-list">
+            <li><strong>Copy URL:</strong> Plain stream URL - use this for VLC's GUI or other players</li>
+            <li><strong>VLC Command:</strong> Command-line format for terminal/command prompt</li>
+            <li><strong>mpv Command:</strong> Command for mpv media player via terminal</li>
+            <li><strong>ffmpeg Command:</strong> Download/convert stream using ffmpeg</li>
+            <li><strong>youtube-dl / yt-dlp:</strong> Download using these popular tools</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <h3>Tips & Tricks</h3>
+          <ul class="about-list">
+            <li><strong>Multiple Streams:</strong> Many sites detect several quality variants - choose the highest resolution for best quality.</li>
+            <li><strong>Search:</strong> Use the search box to filter streams by domain or URL keywords.</li>
+            <li><strong>History:</strong> All detected streams are saved automatically (up to 500). Access them anytime in the History tab.</li>
+            <li><strong>Export:</strong> Use "Export" to save all streams to a JSON file with metadata.</li>
+            <li><strong>Copy All:</strong> Grab all URLs at once (one per line) for batch processing.</li>
+            <li><strong>Testing Sites:</strong> Try Twitch.tv, Twitter videos, or Vimeo for testing.</li>
+          </ul>
+        </div>
+
+        <div class="about-section">
+          <h3>Supported Formats</h3>
+          <div class="format-badges">
+            <span class="stream-type-badge badge-m3u8">M3U8</span> HLS (HTTP Live Streaming)
+          </div>
+          <div class="format-badges">
+            <span class="stream-type-badge badge-m3u">M3U</span> M3U Playlists
+          </div>
+          <div class="format-badges">
+            <span class="stream-type-badge badge-mpd">MPD</span> MPEG-DASH
+          </div>
+          <div class="format-badges">
+            <span class="stream-type-badge badge-ism">ISM/ISMC</span> Microsoft Smooth Streaming
+          </div>
+        </div>
+
+        <div class="about-section">
+          <h3>Privacy</h3>
+          <p>All data is stored locally in your browser. No information is transmitted to external servers. You can clear your history anytime.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="hls.min.js"></script>
+  <script src="storage-manager.js"></script>
+  <script src="manifest-parser.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
