@@ -8,10 +8,16 @@ let currentStats = null;
 let filterType = 'all';
 let searchQuery = '';
 
+// Performance optimization
+let previewObserver = null;
+let activePreviewsCount = 0;
+const MAX_ACTIVE_PREVIEWS = 5;
+
 // Initialize when popup loads
 document.addEventListener('DOMContentLoaded', async function() {
   setupTabNavigation();
   setupEventListeners();
+  await checkConnectionSpeed();
   await loadDetectionState();
   await loadCurrentStreams();
   await loadHistory();
@@ -84,6 +90,85 @@ function setupEventListeners() {
 
   // Detection toggle
   document.getElementById('detection-toggle').addEventListener('change', toggleDetection);
+}
+
+// Check connection speed and show warning if slow
+async function checkConnectionSpeed() {
+  // Check if Network Information API is available
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+  if (!connection) {
+    return; // API not available, skip check
+  }
+
+  const effectiveType = connection.effectiveType;
+  const downlink = connection.downlink; // Mbps
+  const saveData = connection.saveData;
+
+  // Show warning for slow connections
+  const isSlowConnection =
+    effectiveType === 'slow-2g' ||
+    effectiveType === '2g' ||
+    (downlink && downlink < 1) || // Less than 1 Mbps
+    saveData === true;
+
+  if (isSlowConnection) {
+    showConnectionWarning(effectiveType, downlink);
+
+    // Check if auto-preview is enabled
+    const result = await browser.storage.local.get('settings');
+    const settings = result.settings || { autoPreview: true };
+
+    if (settings.autoPreview) {
+      // Suggest disabling auto-preview
+      setTimeout(() => {
+        showAutoPreviewSuggestion();
+      }, 1000);
+    }
+  }
+}
+
+// Show connection warning banner
+function showConnectionWarning(effectiveType, downlink) {
+  const toolbar = document.querySelector('.toolbar');
+
+  // Check if banner already exists
+  if (document.getElementById('connection-warning')) {
+    return;
+  }
+
+  const warning = document.createElement('div');
+  warning.id = 'connection-warning';
+  warning.className = 'connection-warning';
+  warning.innerHTML = `
+    <span class="warning-icon">⚠</span>
+    <span class="warning-text">Slow connection detected (${effectiveType || 'low bandwidth'}). Video previews may load slowly.</span>
+    <button class="warning-close" onclick="this.parentElement.remove()">×</button>
+  `;
+
+  toolbar.insertAdjacentElement('afterend', warning);
+}
+
+// Suggest disabling auto-preview
+function showAutoPreviewSuggestion() {
+  const warning = document.getElementById('connection-warning');
+  if (!warning) return;
+
+  const suggestion = document.createElement('div');
+  suggestion.className = 'connection-suggestion';
+  suggestion.innerHTML = `
+    Tip: You can disable auto-preview in
+    <a href="#" id="open-settings-link" style="color: #4a90e2; text-decoration: underline;">Settings</a>
+    for faster performance.
+  `;
+
+  warning.appendChild(suggestion);
+
+  // Add click handler for settings link
+  document.getElementById('open-settings-link')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    browser.runtime.openOptionsPage();
+  });
 }
 
 // Load detection state
@@ -183,18 +268,79 @@ function displayStreams() {
   checkAutoPreview(filtered);
 }
 
+// Setup Intersection Observer for lazy loading
+function setupPreviewObserver() {
+  if (previewObserver) {
+    previewObserver.disconnect();
+  }
+
+  const options = {
+    root: document.getElementById('streams-container'),
+    rootMargin: '50px',
+    threshold: 0.1
+  };
+
+  previewObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      const streamItem = entry.target;
+      const index = parseInt(streamItem.dataset.streamIndex);
+
+      if (entry.isIntersecting) {
+        // Load preview when visible
+        if (!streamItem.dataset.previewLoaded && activePreviewsCount < MAX_ACTIVE_PREVIEWS) {
+          loadPreviewLazy(index);
+          streamItem.dataset.previewLoaded = 'true';
+        }
+      } else {
+        // Cleanup when scrolled out of view
+        if (streamItem.dataset.previewLoaded === 'true') {
+          cleanupPreview(index);
+        }
+      }
+    });
+  }, options);
+}
+
 // Check if auto-preview is enabled and load previews
 async function checkAutoPreview(streams) {
   const result = await browser.storage.local.get('settings');
   const settings = result.settings || { autoPreview: true };
 
   if (settings.autoPreview && streams.length > 0) {
-    // Load previews with small delay between each
+    // Setup observer for lazy loading
+    setupPreviewObserver();
+
+    // Observe all stream items
     streams.forEach((stream, index) => {
-      setTimeout(() => {
-        togglePreview(stream, index);
-      }, index * 200); // 200ms delay between each
+      const streamElement = document.querySelector(`[data-stream-index="${index}"]`);
+      if (streamElement && previewObserver) {
+        previewObserver.observe(streamElement);
+      }
     });
+  }
+}
+
+// Load preview lazily (called by Intersection Observer)
+async function loadPreviewLazy(index) {
+  if (index >= currentStreams.length) return;
+
+  const stream = currentStreams[index];
+  activePreviewsCount++;
+  await togglePreview(stream, index);
+}
+
+// Cleanup preview when scrolled out of view
+function cleanupPreview(index) {
+  const previewBtn = document.getElementById(`preview-btn-${index}`);
+  const previewEl = document.getElementById(`preview-${index}`);
+
+  if (previewBtn && previewBtn.classList.contains('active')) {
+    // Close preview to free memory
+    const stream = currentStreams[index];
+    if (stream) {
+      togglePreview(stream, index);
+    }
+    activePreviewsCount = Math.max(0, activePreviewsCount - 1);
   }
 }
 
@@ -202,6 +348,7 @@ async function checkAutoPreview(streams) {
 function createStreamElement(stream, index) {
   const div = document.createElement('div');
   div.className = 'stream-item';
+  div.dataset.streamIndex = index;
 
   // Header with badge and quality
   const header = document.createElement('div');
@@ -384,7 +531,13 @@ async function validateStream(url, index) {
 async function loadDetails(stream, index) {
   const detailsEl = document.getElementById(`details-${index}`);
 
-  detailsEl.innerHTML = '<div class="stream-details-content">Loading quality information...</div>';
+  detailsEl.innerHTML = `
+    <div class="details-skeleton">
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+    </div>
+  `;
   detailsEl.classList.add('show');
 
   try {
@@ -448,7 +601,7 @@ async function togglePreview(stream, index) {
   // Show preview and update button
   previewBtn.classList.add('active');
   previewBtn.textContent = 'Close';
-  previewEl.innerHTML = '<div class="preview-loading">Loading preview...</div>';
+  previewEl.innerHTML = '<div class="preview-skeleton"></div>';
   previewEl.classList.add('show');
 
   try {
@@ -514,11 +667,29 @@ async function togglePreview(stream, index) {
     if (stream.type === 'm3u8' || stream.type === 'm3u') {
       // Use HLS.js for M3U8 streams
       if (Hls.isSupported()) {
-        const hls = new Hls({
+        // Get quality preference from settings
+        const result = await browser.storage.local.get('settings');
+        const settings = result.settings || { previewQuality: 'medium' };
+        const quality = settings.previewQuality || 'medium';
+
+        // Configure HLS.js based on quality preference
+        const hlsConfig = {
           enableWorker: true,
           lowLatencyMode: false,
-          backBufferLength: 10
-        });
+          backBufferLength: quality === 'low' ? 5 : quality === 'high' ? 20 : 10,
+          maxBufferLength: quality === 'low' ? 10 : quality === 'high' ? 60 : 30,
+          maxMaxBufferLength: quality === 'low' ? 20 : quality === 'high' ? 120 : 60
+        };
+
+        // For low quality, prefer lower bitrate levels
+        if (quality === 'low') {
+          hlsConfig.startLevel = 0; // Start with lowest quality
+          hlsConfig.capLevelToPlayerSize = true; // Don't exceed player size
+        } else if (quality === 'high') {
+          hlsConfig.startLevel = -1; // Auto-select (usually highest)
+        }
+
+        const hls = new Hls(hlsConfig);
 
         hls.loadSource(stream.url);
         hls.attachMedia(video);

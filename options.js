@@ -13,13 +13,15 @@ async function loadSettings() {
     notifications: true,
     autoValidate: false,
     saveToHistory: true,
-    autoPreview: true
+    autoPreview: true,
+    previewQuality: 'medium'
   };
 
   document.getElementById('notifications-enabled').checked = settings.notifications;
   document.getElementById('auto-validate').checked = settings.autoValidate;
   document.getElementById('save-to-history').checked = settings.saveToHistory;
   document.getElementById('auto-preview').checked = settings.autoPreview;
+  document.getElementById('preview-quality').value = settings.previewQuality || 'medium';
 }
 
 // Save settings
@@ -28,7 +30,8 @@ async function saveSettings() {
     notifications: document.getElementById('notifications-enabled').checked,
     autoValidate: document.getElementById('auto-validate').checked,
     saveToHistory: document.getElementById('save-to-history').checked,
-    autoPreview: document.getElementById('auto-preview').checked
+    autoPreview: document.getElementById('auto-preview').checked,
+    previewQuality: document.getElementById('preview-quality').value
   };
 
   await browser.storage.local.set({ settings: settings });

@@ -56,6 +56,23 @@
       margin-top: 5px;
     }
 
+    .setting select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 13px;
+      background-color: white;
+      cursor: pointer;
+      margin-top: 5px;
+    }
+
+    .setting label[for] {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+
     .save-btn {
       background-color: #4a90e2;
       color: white;
@@ -127,6 +144,20 @@
       </label>
       <div class="setting-description">
         Automatically load live video previews for all detected streams. Disable this if you have a slow connection or many streams are detected.
+      </div>
+    </div>
+
+    <div class="setting">
+      <label for="preview-quality">
+        <span>Preview Quality</span>
+      </label>
+      <select id="preview-quality">
+        <option value="low">Low (360p - Fast, Low Bandwidth)</option>
+        <option value="medium" selected>Medium (720p - Balanced)</option>
+        <option value="high">High (1080p+ - Best Quality)</option>
+      </select>
+      <div class="setting-description">
+        Choose preview quality. Lower quality uses less bandwidth and loads faster. Higher quality provides better preview but uses more resources.
       </div>
     </div>
   </div>

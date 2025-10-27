@@ -70,7 +70,8 @@ const StorageManager = {
     return result[this.KEYS.SETTINGS] || {
       notifications: true,
       autoValidate: false,
-      autoPreview: true
+      autoPreview: true,
+      previewQuality: 'medium'
     };
   }
 };
