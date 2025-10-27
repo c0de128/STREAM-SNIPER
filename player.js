@@ -26,9 +26,9 @@ document.addEventListener('DOMContentLoaded', function() {
 // Load and play stream
 function loadStream(url, type) {
   const video = document.getElementById('video-player');
-  const infoDisplay = document.getElementById('stream-info');
+  const infoContent = document.getElementById('info-content');
 
-  infoDisplay.innerHTML = '<div class="info-line">Loading stream...</div>';
+  infoContent.innerHTML = '<div class="info-line">Loading stream...</div>';
 
   try {
     if (type === 'm3u8' || type === 'm3u') {
