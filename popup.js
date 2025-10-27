@@ -8,11 +8,6 @@ let currentStats = null;
 let filterType = 'all';
 let searchQuery = '';
 
-// Performance optimization
-let previewObserver = null;
-let activePreviewsCount = 0;
-const MAX_ACTIVE_PREVIEWS = 5;
-
 // Initialize when popup loads
 document.addEventListener('DOMContentLoaded', async function() {
   setupTabNavigation();
@@ -268,79 +263,16 @@ function displayStreams() {
   checkAutoPreview(filtered);
 }
 
-// Setup Intersection Observer for lazy loading
-function setupPreviewObserver() {
-  if (previewObserver) {
-    previewObserver.disconnect();
-  }
-
-  const options = {
-    root: document.getElementById('streams-container'),
-    rootMargin: '50px',
-    threshold: 0.1
-  };
-
-  previewObserver = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      const streamItem = entry.target;
-      const index = parseInt(streamItem.dataset.streamIndex);
-
-      if (entry.isIntersecting) {
-        // Load preview when visible
-        if (!streamItem.dataset.previewLoaded && activePreviewsCount < MAX_ACTIVE_PREVIEWS) {
-          loadPreviewLazy(index);
-          streamItem.dataset.previewLoaded = 'true';
-        }
-      } else {
-        // Cleanup when scrolled out of view
-        if (streamItem.dataset.previewLoaded === 'true') {
-          cleanupPreview(index);
-        }
-      }
-    });
-  }, options);
-}
-
 // Check if auto-preview is enabled and load previews
 async function checkAutoPreview(streams) {
   const result = await browser.storage.local.get('settings');
   const settings = result.settings || { autoPreview: true };
 
   if (settings.autoPreview && streams.length > 0) {
-    // Setup observer for lazy loading
-    setupPreviewObserver();
-
-    // Observe all stream items
+    // Load all previews immediately
     streams.forEach((stream, index) => {
-      const streamElement = document.querySelector(`[data-stream-index="${index}"]`);
-      if (streamElement && previewObserver) {
-        previewObserver.observe(streamElement);
-      }
-    });
-  }
-}
-
-// Load preview lazily (called by Intersection Observer)
-async function loadPreviewLazy(index) {
-  if (index >= currentStreams.length) return;
-
-  const stream = currentStreams[index];
-  activePreviewsCount++;
-  await togglePreview(stream, index);
-}
-
-// Cleanup preview when scrolled out of view
-function cleanupPreview(index) {
-  const previewBtn = document.getElementById(`preview-btn-${index}`);
-  const previewEl = document.getElementById(`preview-${index}`);
-
-  if (previewBtn && previewBtn.classList.contains('active')) {
-    // Close preview to free memory
-    const stream = currentStreams[index];
-    if (stream) {
       togglePreview(stream, index);
-    }
-    activePreviewsCount = Math.max(0, activePreviewsCount - 1);
+    });
   }
 }
 
@@ -348,7 +280,6 @@ function cleanupPreview(index) {
 function createStreamElement(stream, index) {
   const div = document.createElement('div');
   div.className = 'stream-item';
-  div.dataset.streamIndex = index;
 
   // Header with badge and quality
   const header = document.createElement('div');
@@ -617,6 +548,16 @@ async function togglePreview(stream, index) {
     const wrapper = document.createElement('div');
     wrapper.className = 'preview-container-wrapper';
 
+    // Create close button for preview
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'preview-close-btn';
+    closeBtn.innerHTML = '×';
+    closeBtn.title = 'Close preview';
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePreview(stream, index);
+    });
+
     // Create info overlay
     const infoOverlay = document.createElement('div');
     infoOverlay.className = 'stream-info-overlay';
@@ -698,6 +639,7 @@ async function togglePreview(stream, index) {
           previewEl.innerHTML = '';
           wrapper.appendChild(video);
           wrapper.appendChild(infoOverlay);
+          wrapper.appendChild(closeBtn);
           previewEl.appendChild(wrapper);
 
           video.play().catch(err => {
@@ -732,6 +674,7 @@ async function togglePreview(stream, index) {
         previewEl.innerHTML = '';
         wrapper.appendChild(video);
         wrapper.appendChild(infoOverlay);
+        wrapper.appendChild(closeBtn);
         previewEl.appendChild(wrapper);
 
         video.addEventListener('loadedmetadata', () => {
@@ -750,6 +693,7 @@ async function togglePreview(stream, index) {
       previewEl.innerHTML = '';
       wrapper.appendChild(video);
       wrapper.appendChild(infoOverlay);
+      wrapper.appendChild(closeBtn);
       previewEl.appendChild(wrapper);
 
       video.addEventListener('loadedmetadata', () => {
@@ -768,6 +712,7 @@ async function togglePreview(stream, index) {
       previewEl.innerHTML = '';
       wrapper.appendChild(video);
       wrapper.appendChild(infoOverlay);
+      wrapper.appendChild(closeBtn);
       previewEl.appendChild(wrapper);
 
       video.addEventListener('loadedmetadata', () => {
