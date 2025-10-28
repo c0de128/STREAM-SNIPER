@@ -17,11 +17,18 @@ browser.storage.local.get('detectionEnabled').then(result => {
 
 // Streaming formats to detect
 const STREAM_FORMATS = [
+  // Traditional file extension patterns
   { pattern: /\.m3u8(\?|$)/i, type: 'm3u8', name: 'HLS (M3U8)' },
   { pattern: /\.m3u(\?|$)/i, type: 'm3u', name: 'M3U' },
   { pattern: /\.mpd(\?|$)/i, type: 'mpd', name: 'MPEG-DASH' },
   { pattern: /\.ism(\?|$)/i, type: 'ism', name: 'Smooth Streaming (ISM)' },
-  { pattern: /\.ismc(\?|$)/i, type: 'ismc', name: 'Smooth Streaming (ISMC)' }
+  { pattern: /\.ismc(\?|$)/i, type: 'ismc', name: 'Smooth Streaming (ISMC)' },
+
+  // YouTube-specific patterns (manifest URLs)
+  { pattern: /googlevideo\.com\/api\/manifest\/dash/i, type: 'mpd', name: 'YouTube DASH' },
+  { pattern: /youtube\.com\/api\/manifest\/dash/i, type: 'mpd', name: 'YouTube DASH' },
+  { pattern: /googlevideo\.com.*\/manifest\/hls_(playlist|variant)/i, type: 'm3u8', name: 'YouTube HLS' },
+  { pattern: /youtube\.com.*\/manifest\/hls_(playlist|variant)/i, type: 'm3u8', name: 'YouTube HLS' }
 ];
 
 // Storage Manager (minimal version for background script)
@@ -91,8 +98,65 @@ function extractDomain(url) {
   }
 }
 
+// Check if URL is a YouTube stream (manifest/master playlist)
+function isYouTubeStream(url) {
+  try {
+    const urlObj = new URL(url);
+    const hostname = urlObj.hostname.toLowerCase();
+    const pathname = urlObj.pathname.toLowerCase();
+
+    // Check for YouTube/Google Video domains
+    const isYouTubeDomain =
+      hostname.includes('googlevideo.com') ||
+      hostname.includes('youtube.com');
+
+    if (!isYouTubeDomain) return false;
+
+    // Check for manifest paths (master playlists only, not individual segments)
+    const isManifest =
+      pathname.includes('/manifest/dash') ||
+      pathname.includes('/manifest/hls_playlist') ||
+      pathname.includes('/manifest/hls_variant') ||
+      pathname.includes('/api/manifest/');
+
+    return isManifest;
+  } catch (e) {
+    return false;
+  }
+}
+
+// Normalize YouTube URLs by removing dynamic parameters
+function normalizeYouTubeURL(url) {
+  if (!isYouTubeStream(url)) return url;
+
+  try {
+    const urlObj = new URL(url);
+    // Remove timestamp parameters that change frequently
+    urlObj.searchParams.delete('expire');
+    urlObj.searchParams.delete('ei');
+    urlObj.searchParams.delete('key');
+    urlObj.searchParams.delete('signature');
+    urlObj.searchParams.delete('sig');
+
+    return urlObj.origin + urlObj.pathname + '?' + urlObj.searchParams.toString();
+  } catch (e) {
+    return url;
+  }
+}
+
 // Determine stream type from URL
 function getStreamType(url) {
+  // Check YouTube patterns first (priority detection)
+  if (isYouTubeStream(url)) {
+    if (url.includes('/manifest/dash') || url.includes('/dash/')) {
+      return { type: 'mpd', name: 'YouTube DASH' };
+    }
+    if (url.includes('/manifest/hls') || url.includes('/hls_')) {
+      return { type: 'm3u8', name: 'YouTube HLS' };
+    }
+  }
+
+  // Then check traditional file extension patterns
   for (const format of STREAM_FORMATS) {
     if (format.pattern.test(url)) {
       return { type: format.type, name: format.name };
@@ -138,8 +202,11 @@ browser.webRequest.onBeforeRequest.addListener(
         detectedStreams[tabId] = [];
       }
 
-      // Check if already detected in current session
-      const alreadyDetected = detectedStreams[tabId].some(s => s.url === url);
+      // Check if already detected in current session (normalize YouTube URLs for comparison)
+      const normalizedUrl = normalizeYouTubeURL(url);
+      const alreadyDetected = detectedStreams[tabId].some(s =>
+        normalizeYouTubeURL(s.url) === normalizedUrl
+      );
 
       if (!alreadyDetected) {
         console.log(`${streamInfo.name} stream detected:`, url);
