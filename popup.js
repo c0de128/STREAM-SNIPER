@@ -967,6 +967,25 @@ async function loadDetails(stream, index) {
   `;
   detailsEl.classList.add('show');
 
+  // Skip parsing for YouTube streams - they use authenticated segments
+  if (stream.type === 'youtube-video' || stream.type === 'youtube-audio') {
+    detailsEl.innerHTML = `
+      <div class="stream-details-content">
+        <strong>YouTube Stream Information:</strong>
+        <ul class="quality-list">
+          <li><strong>Quality:</strong> ${stream.quality || 'Unknown'}</li>
+          <li><strong>Video ID:</strong> ${stream.videoId || 'Unknown'}</li>
+          <li><strong>Type:</strong> ${stream.typeName}</li>
+          <li><strong>Format:</strong> Direct video segment (authenticated)</li>
+        </ul>
+        <p style="margin-top: 10px; font-size: 12px; color: #666;">
+          YouTube streams use authenticated video segments. Use yt-dlp or youtube-dl to download.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
   try {
     const manifestData = await ManifestParser.parseManifest(stream.url, stream.type);
 
@@ -1037,6 +1056,32 @@ async function togglePreview(stream, index) {
   previewBtn.textContent = 'Close';
   previewEl.innerHTML = '<div class="preview-skeleton"></div>';
   previewEl.classList.add('show');
+
+  // Check if this is a YouTube stream - they cannot be previewed
+  if (stream.type === 'youtube-video' || stream.type === 'youtube-audio') {
+    previewEl.innerHTML = `
+      <div class="youtube-preview-message">
+        <div class="youtube-icon">▶️</div>
+        <h3>YouTube Video Detected</h3>
+        <p>YouTube streams cannot be previewed directly due to authentication and CORS restrictions.</p>
+        <div class="youtube-actions">
+          <button class="youtube-action-btn" onclick="window.open('https://youtube.com/watch?v=${stream.videoId || ''}', '_blank')">
+            🔗 Open in YouTube
+          </button>
+          <button class="youtube-action-btn" onclick="navigator.clipboard.writeText('${stream.url.replace(/'/g, "\\'")}'); this.textContent='✓ Copied!';">
+            📋 Copy URL
+          </button>
+        </div>
+        <div class="youtube-info">
+          <strong>Quality:</strong> ${stream.quality || 'Unknown'}<br>
+          <strong>Video ID:</strong> ${stream.videoId || 'Unknown'}<br>
+          <strong>Format:</strong> ${stream.typeName}<br>
+          <strong>Type:</strong> Direct video segment (use yt-dlp or youtube-dl to download)
+        </div>
+      </div>
+    `;
+    return; // Exit early, don't try to create video element
+  }
 
   try {
     // Create video element
