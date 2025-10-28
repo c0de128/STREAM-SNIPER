@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Stream Sniper",
+  "version": "2.0",
+  "description": "Stream Sniper - Detect, preview, download, and capture streaming URLs (HLS, MPEG-DASH, Smooth Streaming) with live playback",
+
+  "icons": {
+    "48": "icon.png",
+    "96": "icon.png"
+  },
+
+  "permissions": [
+    "storage",
+    "notifications",
+    "tabs",
+    "downloads",
+    "nativeMessaging",
+    "declarativeNetRequest",
+    "declarativeNetRequestFeedback"
+  ],
+
+  "host_permissions": [
+    "<all_urls>"
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "action": {
+    "default_icon": "icon.png",
+    "default_title": "Stream Sniper",
+    "default_popup": "popup.html"
+  },
+
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "player.html",
+        "quality-selector.html",
+        "setup-wizard.html"
+      ],
+      "matches": ["<all_urls>"]
+    }
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

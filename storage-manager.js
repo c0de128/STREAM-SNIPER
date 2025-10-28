@@ -256,6 +256,49 @@ const StorageManager = {
       await this.addFavorite(streamData);
       return true;
     }
+  },
+
+  // ========== DOWNLOAD MANAGEMENT ==========
+
+  // Get download queue
+  async getDownloadQueue() {
+    const result = await browser.storage.local.get('downloadQueue');
+    return result.downloadQueue || [];
+  },
+
+  // Save download queue
+  async saveDownloadQueue(queue) {
+    await browser.storage.local.set({ downloadQueue: queue });
+  },
+
+  // Get download history
+  async getDownloadHistory() {
+    const result = await browser.storage.local.get('downloadHistory');
+    return result.downloadHistory || [];
+  },
+
+  // Clear download history
+  async clearDownloadHistory() {
+    await browser.storage.local.set({ downloadHistory: [] });
+  },
+
+  // Get download settings
+  async getDownloadSettings() {
+    const result = await browser.storage.local.get('downloadSettings');
+    return result.downloadSettings || {
+      preferredMethod: 'auto', // 'native', 'ytdlp', 'auto'
+      defaultQuality: 'ask', // 'best', 'ask', 'preset'
+      presetQuality: '1080p',
+      showNotifications: true,
+      autoDownload: false,
+      ytdlpPath: '', // Path to yt-dlp executable
+      ytdlpArgs: '' // Additional arguments for yt-dlp
+    };
+  },
+
+  // Save download settings
+  async saveDownloadSettings(settings) {
+    await browser.storage.local.set({ downloadSettings: settings });
   }
 };
 

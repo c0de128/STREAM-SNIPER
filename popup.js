@@ -379,6 +379,10 @@ function createStreamElement(stream, index) {
   const copyDropdown = createCopyDropdown(stream.url);
   actions.appendChild(copyDropdown);
 
+  // Download button with dropdown
+  const downloadDropdown = createDownloadDropdown(stream, index);
+  actions.appendChild(downloadDropdown);
+
   // Validate button
   const validateBtn = document.createElement('button');
   validateBtn.className = 'small-btn validate-btn';
@@ -464,6 +468,145 @@ function createCopyDropdown(url) {
   });
 
   return dropdown;
+}
+
+// Create download dropdown with download options
+function createDownloadDropdown(stream) {
+  const dropdown = document.createElement('div');
+  dropdown.className = 'dropdown';
+
+  const downloadBtn = document.createElement('button');
+  downloadBtn.className = 'download-btn';
+  downloadBtn.textContent = '↓ Download ▾';
+  downloadBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const content = dropdown.querySelector('.dropdown-content');
+    content.classList.toggle('show');
+  });
+  dropdown.appendChild(downloadBtn);
+
+  const dropdownContent = document.createElement('div');
+  dropdownContent.className = 'dropdown-content';
+
+  const options = [
+    {
+      label: 'Download Best Quality',
+      action: () => downloadBestQuality(stream)
+    },
+    {
+      label: 'Select Quality...',
+      action: () => openQualitySelector(stream)
+    },
+    {
+      label: 'Add to Download Queue',
+      action: () => addToDownloadQueue(stream)
+    }
+  ];
+
+  options.forEach(option => {
+    const btn = document.createElement('button');
+    btn.textContent = option.label;
+    btn.addEventListener('click', () => {
+      option.action();
+      dropdownContent.classList.remove('show');
+    });
+    dropdownContent.appendChild(btn);
+  });
+
+  dropdown.appendChild(dropdownContent);
+
+  // Close dropdown when clicking outside
+  document.addEventListener('click', () => {
+    dropdownContent.classList.remove('show');
+  });
+
+  return dropdown;
+}
+
+// Download best quality directly
+async function downloadBestQuality(stream) {
+  try {
+    const response = await browser.runtime.sendMessage({
+      action: 'startDownload',
+      streamData: stream,
+      quality: null // Will auto-select best quality
+    });
+
+    if (response && response.success) {
+      showDownloadStartedNotification(stream);
+      // Switch to downloads tab
+      switchTab('downloads');
+    } else {
+      alert('Failed to start download: ' + (response.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error starting download:', error);
+    alert('Failed to start download: ' + error.message);
+  }
+}
+
+// Open quality selector in new window
+function openQualitySelector(stream) {
+  const params = new URLSearchParams({
+    url: stream.url,
+    type: stream.type,
+    domain: stream.domain,
+    title: stream.pageTitle || 'Stream',
+    pageUrl: stream.pageUrl || ''
+  });
+
+  const selectorUrl = browser.runtime.getURL('quality-selector.html') + '?' + params.toString();
+
+  browser.windows.create({
+    url: selectorUrl,
+    type: 'popup',
+    width: 600,
+    height: 700
+  });
+}
+
+// Add to download queue without starting
+async function addToDownloadQueue(stream) {
+  try {
+    const response = await browser.runtime.sendMessage({
+      action: 'addToQueue',
+      streamData: stream
+    });
+
+    if (response && response.success) {
+      showNotification('Added to download queue', 'Stream will be downloaded when ready');
+      switchTab('downloads');
+    } else {
+      alert('Failed to add to queue: ' + (response.error || 'Unknown error'));
+    }
+  } catch (error) {
+    console.error('Error adding to queue:', error);
+    alert('Failed to add to queue: ' + error.message);
+  }
+}
+
+// Show download started notification
+function showDownloadStartedNotification(stream) {
+  // Create toast notification
+  const toast = document.createElement('div');
+  toast.className = 'download-toast';
+  toast.innerHTML = `
+    <div class="toast-icon">↓</div>
+    <div class="toast-content">
+      <div class="toast-title">Download Started</div>
+      <div class="toast-message">Downloading from ${stream.domain}</div>
+    </div>
+  `;
+  document.body.appendChild(toast);
+
+  // Show toast
+  setTimeout(() => toast.classList.add('show'), 10);
+
+  // Hide and remove after 3 seconds
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 3000);
 }
 
 // Copy to clipboard

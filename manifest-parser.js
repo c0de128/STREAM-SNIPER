@@ -205,5 +205,102 @@ const ManifestParser = {
     }
 
     return null;
+  },
+
+  // ========== DOWNLOAD-SPECIFIC METHODS ==========
+
+  // Get downloadable URL for a specific quality
+  getDownloadableUrl(manifestUrl, quality) {
+    if (!quality || !quality.url) {
+      // Return original URL if no quality-specific URL
+      return manifestUrl;
+    }
+
+    // If quality URL is relative, make it absolute
+    if (quality.url.startsWith('http://') || quality.url.startsWith('https://')) {
+      return quality.url;
+    }
+
+    // Construct absolute URL from base
+    try {
+      const baseUrl = new URL(manifestUrl);
+      const pathParts = baseUrl.pathname.split('/');
+      pathParts.pop(); // Remove manifest filename
+      const basePath = pathParts.join('/');
+      return `${baseUrl.origin}${basePath}/${quality.url}`;
+    } catch (e) {
+      console.error('Error constructing URL:', e);
+      return quality.url;
+    }
+  },
+
+  // Get best quality from manifest data
+  getBestQuality(manifestData) {
+    if (!manifestData || !manifestData.qualities || manifestData.qualities.length === 0) {
+      return null;
+    }
+
+    // Sort by bandwidth (highest first)
+    const sorted = [...manifestData.qualities].sort((a, b) => {
+      return (b.bandwidth || 0) - (a.bandwidth || 0);
+    });
+
+    return sorted[0];
+  },
+
+  // Find quality by resolution
+  findQualityByResolution(manifestData, resolution) {
+    if (!manifestData || !manifestData.qualities) {
+      return null;
+    }
+
+    return manifestData.qualities.find(q => q.resolution === resolution);
+  },
+
+  // Find quality by minimum resolution
+  findQualityByMinResolution(manifestData, minHeight) {
+    if (!manifestData || !manifestData.qualities) {
+      return null;
+    }
+
+    // Filter qualities that meet minimum height
+    const suitable = manifestData.qualities.filter(q => {
+      if (!q.resolution) return false;
+      const height = parseInt(q.resolution.split('x')[1]);
+      return height >= minHeight;
+    });
+
+    if (suitable.length === 0) {
+      // If none meet minimum, return best available
+      return this.getBestQuality(manifestData);
+    }
+
+    // Return closest to minimum (most efficient)
+    suitable.sort((a, b) => {
+      const heightA = parseInt(a.resolution.split('x')[1]);
+      const heightB = parseInt(b.resolution.split('x')[1]);
+      return heightA - heightB;
+    });
+
+    return suitable[0];
+  },
+
+  // Estimate file size for a quality
+  estimateFileSize(quality, durationMinutes = 10) {
+    if (!quality || !quality.bandwidth) {
+      return null;
+    }
+
+    // bandwidth is in bits per second
+    const bytesPerSecond = quality.bandwidth / 8;
+    const bytesPerMinute = bytesPerSecond * 60;
+    const totalBytes = bytesPerMinute * durationMinutes;
+    const megabytes = totalBytes / (1024 * 1024);
+
+    return {
+      bytes: Math.round(totalBytes),
+      megabytes: Math.round(megabytes * 10) / 10,
+      formatted: `${Math.round(megabytes)} MB (${durationMinutes} min)`
+    };
   }
 };

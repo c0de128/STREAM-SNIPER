@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Select Quality</title>
+  <style>
+    :root {
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --text-primary: #333;
+      --text-secondary: #555;
+      --border-color: #ddd;
+      --border-accent: #4a90e2;
+      --button-bg: #4a90e2;
+      --button-hover: #357abd;
+      --quality-hover: #f0f7ff;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2d2d2d;
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
+      --border-color: #444;
+      --quality-hover: #3a3a3a;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      padding: 20px;
+      min-width: 500px;
+      max-width: 700px;
+    }
+
+    .container {
+      background-color: var(--bg-secondary);
+      border-radius: 8px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    h1 {
+      font-size: 20px;
+      margin-bottom: 15px;
+      color: var(--text-primary);
+    }
+
+    .stream-info {
+      background-color: var(--bg-primary);
+      padding: 12px;
+      border-radius: 5px;
+      margin-bottom: 20px;
+      font-size: 13px;
+    }
+
+    .stream-url {
+      word-break: break-all;
+      color: var(--text-secondary);
+      margin-bottom: 5px;
+    }
+
+    .stream-type {
+      display: inline-block;
+      padding: 3px 8px;
+      background-color: var(--button-bg);
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      border: 3px solid var(--border-color);
+      border-top: 3px solid var(--button-bg);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 15px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      padding: 15px;
+      background-color: #f8d7da;
+      color: #721c24;
+      border-radius: 5px;
+      margin-bottom: 15px;
+    }
+
+    .qualities-list {
+      max-height: 400px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+
+    .quality-item {
+      border: 2px solid var(--border-color);
+      border-radius: 5px;
+      padding: 15px;
+      margin-bottom: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .quality-item:hover {
+      background-color: var(--quality-hover);
+      border-color: var(--border-accent);
+    }
+
+    .quality-item.selected {
+      border-color: var(--border-accent);
+      background-color: var(--quality-hover);
+    }
+
+    .quality-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .quality-resolution {
+      font-size: 18px;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .quality-label {
+      display: inline-block;
+      padding: 3px 8px;
+      background-color: #28a745;
+      color: white;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: bold;
+    }
+
+    .quality-label.medium {
+      background-color: #ffc107;
+    }
+
+    .quality-label.low {
+      background-color: #dc3545;
+    }
+
+    .quality-details {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .quality-detail {
+      display: inline-block;
+      margin-right: 15px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+    }
+
+    .download-btn {
+      background-color: var(--button-bg);
+      color: white;
+    }
+
+    .download-btn:hover {
+      background-color: var(--button-hover);
+    }
+
+    .download-btn:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .cancel-btn {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .cancel-btn:hover {
+      background-color: #5a6268;
+    }
+
+    .quick-download-btn {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .quick-download-btn:hover {
+      background-color: #218838;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Select Quality to Download</h1>
+
+    <div class="stream-info">
+      <div class="stream-url" id="stream-url"></div>
+      <span class="stream-type" id="stream-type"></span>
+    </div>
+
+    <div id="loading" class="loading">
+      <div class="spinner"></div>
+      <p>Loading available qualities...</p>
+    </div>
+
+    <div id="error" class="error" style="display: none;"></div>
+
+    <div id="qualities-container" style="display: none;">
+      <div class="qualities-list" id="qualities-list"></div>
+
+      <div class="actions">
+        <button class="cancel-btn" id="cancel-btn">Cancel</button>
+        <button class="quick-download-btn" id="quick-btn">Download Best Quality</button>
+        <button class="download-btn" id="download-btn" disabled>Download Selected</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="browser-polyfill.js"></script>
+  <script src="manifest-parser.js"></script>
+  <script src="quality-selector.js"></script>
+</body>
+</html>
