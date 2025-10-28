@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Load Stream Sniper Extension - Step by Step</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+        }
+        .container {
+            background: white;
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            text-align: center;
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .step:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .step-number {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            text-align: center;
+            line-height: 32px;
+            font-weight: bold;
+            margin-right: 12px;
+        }
+        .step-title {
+            font-size: 20px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .step-content {
+            color: #555;
+            line-height: 1.6;
+            margin-left: 44px;
+        }
+        code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .path {
+            background: #edf2f7;
+            padding: 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            margin: 10px 0;
+            word-break: break-all;
+            border: 1px solid #cbd5e0;
+        }
+        .button {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        .button:hover {
+            background: #5a67d8;
+        }
+        .success {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .important {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .checkmark {
+            color: #28a745;
+            font-size: 24px;
+            margin-right: 8px;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border: 2px solid #2196f3;
+            padding: 16px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #2196f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Load Stream Sniper Extension</h1>
+        <div class="subtitle">Follow these steps to load your extension in Firefox</div>
+
+        <div class="info-box">
+            <h3>✅ Installation Complete!</h3>
+            <p><strong>All dependencies are installed and ready:</strong></p>
+            <ul>
+                <li>✓ Extension built for Firefox and Chrome</li>
+                <li>✓ yt-dlp 2025.10.22 installed</li>
+                <li>✓ FFmpeg 8.0 installed</li>
+                <li>✓ Native messaging host configured</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">1</span>
+                Open Firefox Debugging Page
+            </div>
+            <div class="step-content">
+                Firefox should have already opened to the debugging page. If not, manually navigate to:
+                <div class="path">about:debugging#/runtime/this-firefox</div>
+                Or: Menu → More tools → Extensions & Themes → Debug Add-ons
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">2</span>
+                Click "Load Temporary Add-on"
+            </div>
+            <div class="step-content">
+                On the debugging page, click the <strong>"Load Temporary Add-on..."</strong> button.
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">3</span>
+                Select Extension File
+            </div>
+            <div class="step-content">
+                A file browser should have opened. Navigate to or paste this path:
+                <div class="path">C:\Users\KevinMcKay\Downloads\M3U8\builds</div>
+                Select the file: <code>stream-sniper-firefox-v2.0.zip</code>
+            </div>
+        </div>
+
+        <div class="step success">
+            <div class="step-title">
+                <span class="step-number">4</span>
+                Extension Loaded! 🎉
+            </div>
+            <div class="step-content">
+                You should see "Stream Sniper" appear in the list with:
+                <ul>
+                    <li>Extension icon in toolbar</li>
+                    <li>Version 2.0</li>
+                    <li>Internal UUID/ID displayed</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="step important">
+            <div class="step-title">
+                <span class="step-number">5</span>
+                ⚠️ IMPORTANT: Copy Extension ID
+            </div>
+            <div class="step-content">
+                <strong>This step is required for yt-dlp to work!</strong>
+                <ol>
+                    <li>On the debugging page, find "Stream Sniper" in the list</li>
+                    <li>Look for "Internal UUID" or the ID below the extension name</li>
+                    <li>Copy the entire ID (format: <code>{12345678-1234-1234-1234-123456789012}</code>)</li>
+                    <li>Keep it handy for the next step</li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="step important">
+            <div class="step-title">
+                <span class="step-number">6</span>
+                Update Native Messaging Manifest
+            </div>
+            <div class="step-content">
+                <strong>Open this file in Notepad:</strong>
+                <div class="path">C:\Users\KevinMcKay\AppData\Roaming\StreamSniper\com.streamsniper.ytdlp.json</div>
+
+                <p><strong>Replace:</strong> <code>{EXTENSION_ID_PLACEHOLDER}</code></p>
+                <p><strong>With:</strong> Your actual extension ID from step 5</p>
+                <p><strong>Save the file</strong></p>
+            </div>
+        </div>
+
+        <div class="step">
+            <div class="step-title">
+                <span class="step-number">7</span>
+                Restart Firefox
+            </div>
+            <div class="step-content">
+                Close and reopen Firefox for the native messaging changes to take effect.
+                <br>You'll need to reload the extension from <code>about:debugging</code> again after restart.
+            </div>
+        </div>
+
+        <div class="step success">
+            <div class="step-title">
+                <span class="checkmark">✓</span>
+                Test the Extension!
+            </div>
+            <div class="step-content">
+                <strong>Basic Test:</strong>
+                <ul>
+                    <li>Visit YouTube, Twitch, or Twitter/X</li>
+                    <li>Watch the Stream Sniper badge show detected streams</li>
+                    <li>Click the icon to see the popup with streams</li>
+                    <li>Try the Download button</li>
+                </ul>
+
+                <strong>Test yt-dlp Integration:</strong>
+                <ol>
+                    <li>Click Stream Sniper icon → Settings (gear icon)</li>
+                    <li>Scroll to "Advanced Downloads (yt-dlp)"</li>
+                    <li>Click <strong>"Test yt-dlp Connection"</strong></li>
+                    <li>Should see: <span style="color: #28a745;">✓ Success! yt-dlp is working correctly</span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div class="info-box">
+            <h3>📚 Additional Resources</h3>
+            <ul>
+                <li><strong>QUICK_START.md</strong> - Quick reference guide</li>
+                <li><strong>INSTALLATION_COMPLETE.md</strong> - Full documentation</li>
+                <li><strong>CLAUDE.md</strong> - Architecture documentation</li>
+                <li><strong>NATIVE_MESSAGING_SETUP.md</strong> - yt-dlp setup details</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background: #fff3cd; border-color: #ffc107;">
+            <h3>🔧 Troubleshooting</h3>
+            <p><strong>Extension not detecting streams?</strong></p>
+            <ul>
+                <li>Reload the page after loading the extension</li>
+                <li>Check that detection is enabled (toggle in popup)</li>
+            </ul>
+
+            <p><strong>yt-dlp test fails?</strong></p>
+            <ul>
+                <li>Did you complete steps 5-7 above?</li>
+                <li>Is the extension ID correct in the manifest?</li>
+                <li>Did you restart Firefox?</li>
+            </ul>
+        </div>
+
+    </div>
+</body>
+</html>
