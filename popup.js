@@ -535,6 +535,75 @@ function createStreamElement(stream, index) {
 
   div.appendChild(header);
 
+  // Metadata section (if available)
+  if (stream.metadata || stream.enrichedTitle || stream.category) {
+    const metadataSection = document.createElement('div');
+    metadataSection.className = 'stream-metadata';
+
+    // Thumbnail and content wrapper
+    const metadataContent = document.createElement('div');
+    metadataContent.className = 'metadata-content';
+
+    // Thumbnail
+    if (stream.metadata && stream.metadata.thumbnail) {
+      const thumbnailWrapper = document.createElement('div');
+      thumbnailWrapper.className = 'metadata-thumbnail-wrapper';
+
+      const thumbnail = document.createElement('img');
+      thumbnail.className = 'metadata-thumbnail';
+      thumbnail.src = stream.metadata.thumbnail;
+      thumbnail.alt = 'Stream thumbnail';
+      thumbnail.onerror = () => {
+        thumbnailWrapper.style.display = 'none';
+      };
+      thumbnailWrapper.appendChild(thumbnail);
+
+      metadataContent.appendChild(thumbnailWrapper);
+    }
+
+    // Text content
+    const textContent = document.createElement('div');
+    textContent.className = 'metadata-text';
+
+    // Rich title
+    if (stream.enrichedTitle || (stream.metadata && stream.metadata.title)) {
+      const title = document.createElement('div');
+      title.className = 'metadata-title';
+      title.textContent = stream.enrichedTitle || stream.metadata.title;
+      title.title = stream.enrichedTitle || stream.metadata.title;
+      textContent.appendChild(title);
+    }
+
+    // Category badge
+    if (stream.category) {
+      const categoryBadge = document.createElement('span');
+      categoryBadge.className = `category-badge category-${stream.category.toLowerCase().replace(/_/g, '-')}`;
+      categoryBadge.textContent = stream.category.replace(/_/g, ' ');
+      textContent.appendChild(categoryBadge);
+    }
+
+    // Description
+    if (stream.metadata && stream.metadata.description) {
+      const description = document.createElement('div');
+      description.className = 'metadata-description';
+      description.textContent = stream.metadata.description;
+      description.title = stream.metadata.description;
+      textContent.appendChild(description);
+    }
+
+    // Duration (if available)
+    if (stream.metadata && stream.metadata.duration) {
+      const duration = document.createElement('div');
+      duration.className = 'metadata-duration';
+      duration.innerHTML = `⏱️ <strong>${stream.metadata.duration}</strong>`;
+      textContent.appendChild(duration);
+    }
+
+    metadataContent.appendChild(textContent);
+    metadataSection.appendChild(metadataContent);
+    div.appendChild(metadataSection);
+  }
+
   // Body with URL and actions
   const body = document.createElement('div');
   body.className = 'stream-body';

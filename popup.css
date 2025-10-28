@@ -1882,6 +1882,133 @@ body.dark-mode .error-suggestion {
   margin-left: 5px;
 }
 
+/* Stream Metadata Display */
+.stream-metadata {
+  padding: 10px 15px;
+  background-color: var(--bg-tertiary);
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.metadata-content {
+  display: flex;
+  gap: 12px;
+}
+
+.metadata-thumbnail-wrapper {
+  flex-shrink: 0;
+}
+
+.metadata-thumbnail {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.metadata-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.metadata-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.metadata-description {
+  font-size: 12px;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.metadata-duration {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.metadata-duration strong {
+  color: var(--text-secondary);
+}
+
+/* Category Badges */
+.category-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+  text-transform: capitalize;
+  margin-right: 5px;
+}
+
+.category-badge.category-live-stream {
+  background-color: #dc3545;
+  color: white;
+}
+
+.category-badge.category-sports {
+  background-color: #28a745;
+  color: white;
+}
+
+.category-badge.category-news {
+  background-color: #007bff;
+  color: white;
+}
+
+.category-badge.category-entertainment {
+  background-color: #fd7e14;
+  color: white;
+}
+
+.category-badge.category-music {
+  background-color: #e83e8c;
+  color: white;
+}
+
+.category-badge.category-gaming {
+  background-color: #6f42c1;
+  color: white;
+}
+
+.category-badge.category-educational {
+  background-color: #20c997;
+  color: white;
+}
+
+.category-badge.category-podcast {
+  background-color: #6c757d;
+  color: white;
+}
+
+.category-badge.category-vod {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.category-badge.category-unknown {
+  background-color: var(--bg-tertiary);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
 /* Responsive Adjustments */
 @media (max-width: 600px) {
   body {
