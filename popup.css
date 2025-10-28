@@ -64,6 +64,7 @@ h1 {
   color: var(--text-primary);
   border-bottom: 2px solid var(--border-accent);
   padding-bottom: 10px;
+  position: relative;
 }
 
 h3 {
@@ -71,6 +72,80 @@ h3 {
   font-size: 14px;
   font-weight: 600;
   color: var(--text-secondary);
+}
+
+/* Settings Button (Gear Icon) */
+.header-btn {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+.header-btn:hover {
+  background-color: var(--border-accent);
+  border-color: var(--border-accent);
+  transform: translateY(-50%) rotate(90deg);
+  box-shadow: 0 2px 6px var(--shadow);
+}
+
+.header-btn:active {
+  transform: translateY(-50%) rotate(90deg) scale(0.95);
+}
+
+/* Settings Links */
+.settings-link {
+  color: var(--border-accent);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 1px solid transparent;
+}
+
+.settings-link:hover {
+  border-bottom-color: var(--border-accent);
+  opacity: 0.8;
+}
+
+/* Open Settings Button (in About tab) */
+.open-settings-btn {
+  width: 100%;
+  padding: 12px 20px;
+  background-color: var(--button-bg);
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.open-settings-btn:hover {
+  background-color: var(--button-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.open-settings-btn:active {
+  transform: translateY(0);
 }
 
 /* Tab Navigation */

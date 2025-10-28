@@ -7,7 +7,10 @@
 </head>
 <body>
   <div class="container">
-    <h1>Stream Sniper</h1>
+    <h1>
+      Stream Sniper
+      <button id="settings-btn" class="header-btn" title="Settings">⚙️</button>
+    </h1>
 
     <!-- Error Container -->
     <div id="error-container" style="display: none;"></div>
@@ -267,6 +270,10 @@
     <!-- About Tab -->
     <div id="about-tab" class="tab-content">
       <div class="about-container">
+        <button id="open-settings-btn" class="open-settings-btn">
+          ⚙️ Open Settings
+        </button>
+
         <div class="about-section">
           <h3>About This Extension</h3>
           <p>Stream Sniper automatically identifies and captures streaming URLs on web pages. It supports multiple streaming formats including HLS (M3U8), MPEG-DASH (MPD), and Microsoft Smooth Streaming (ISM/ISMC).</p>
@@ -288,10 +295,10 @@
         <div class="about-section">
           <h3>Video Preview Features</h3>
           <ul class="about-list">
-            <li><strong>Auto-Loading:</strong> Video previews load automatically for all detected streams (can be disabled in Settings).</li>
+            <li><strong>Auto-Loading:</strong> Video previews load automatically for all detected streams (can be disabled in <a href="#" class="settings-link">Settings</a>).</li>
             <li><strong>Stream Information:</strong> Live overlay shows resolution, bitrate, frame rate, and codec information.</li>
             <li><strong>Quality Details:</strong> Available quality variants are displayed automatically below each stream.</li>
-            <li><strong>Performance:</strong> Previews use bandwidth while playing. Disable auto-preview in Settings if on a slow connection.</li>
+            <li><strong>Performance:</strong> Previews use bandwidth while playing. Disable auto-preview in <a href="#" class="settings-link">Settings</a> if on a slow connection.</li>
           </ul>
         </div>
 
@@ -332,7 +339,7 @@
             <li><strong>Compact URLs:</strong> URLs are truncated for cleaner display. Hover over any URL to see the full path.</li>
             <li><strong>Multiple Streams:</strong> Many sites detect several quality variants - compare them using live previews to choose the best.</li>
             <li><strong>Pause Detection:</strong> Use the Detection toggle to pause monitoring when browsing non-streaming sites to save resources.</li>
-            <li><strong>Disable Auto-Preview:</strong> If on a slow connection, disable "Automatically load video previews" in Settings.</li>
+            <li><strong>Disable Auto-Preview:</strong> If on a slow connection, disable "Automatically load video previews" in <a href="#" class="settings-link">Settings</a>.</li>
             <li><strong>Player Shortcuts:</strong> In full-screen player, press F for fullscreen, Space for play/pause, arrows to seek/adjust volume.</li>
             <li><strong>Search:</strong> Use the search box to filter streams by domain or URL keywords.</li>
             <li><strong>History:</strong> All detected streams are saved automatically (up to 500). Access them anytime in the History tab.</li>

@@ -145,6 +145,18 @@ function setupEventListeners() {
     batchPriority = e.target.value;
   });
   document.getElementById('start-batch-btn').addEventListener('click', startBatchDownload);
+
+  // Settings access
+  document.getElementById('settings-btn').addEventListener('click', openSettings);
+  document.getElementById('open-settings-btn').addEventListener('click', openSettings);
+
+  // Settings links in About tab
+  document.querySelectorAll('.settings-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      openSettings();
+    });
+  });
 }
 
 // Keyboard Shortcuts Setup
@@ -2884,4 +2896,13 @@ function setupQualityModalListeners() {
       closeQualityModal();
     }
   });
+}
+
+// ========== SETTINGS PAGE ACCESS ==========
+
+/**
+ * Open the settings/options page
+ */
+function openSettings() {
+  browser.runtime.openOptionsPage();
 }
