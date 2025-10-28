@@ -223,6 +223,109 @@
     </div>
   </div>
 
+  <div class="section">
+    <h2>Download Settings</h2>
+
+    <div class="setting">
+      <label for="download-method">
+        <span>Preferred Download Method</span>
+      </label>
+      <select id="download-method">
+        <option value="auto" selected>Auto-detect (Recommended)</option>
+        <option value="native">Browser Native (Simple streams)</option>
+        <option value="ytdlp">yt-dlp (Advanced - requires setup)</option>
+      </select>
+      <div class="setting-description">
+        Auto-detect uses native downloads for simple streams and yt-dlp for complex ones (if available)
+      </div>
+    </div>
+
+    <div class="setting">
+      <label for="default-quality">
+        <span>Default Quality Selection</span>
+      </label>
+      <select id="default-quality">
+        <option value="ask" selected>Ask each time</option>
+        <option value="best">Always download best quality</option>
+        <option value="preset">Use preset quality</option>
+      </select>
+      <div class="setting-description">
+        Choose whether to select quality manually or automatically pick the best quality
+      </div>
+    </div>
+
+    <div class="setting" id="preset-quality-container" style="display: none;">
+      <label for="preset-quality">
+        <span>Preset Quality</span>
+      </label>
+      <select id="preset-quality">
+        <option value="2160p">4K (2160p)</option>
+        <option value="1440p">2K (1440p)</option>
+        <option value="1080p" selected>Full HD (1080p)</option>
+        <option value="720p">HD (720p)</option>
+        <option value="480p">SD (480p)</option>
+        <option value="360p">Low (360p)</option>
+      </select>
+      <div class="setting-description">
+        Downloads will use the closest available quality to this resolution
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="download-notifications" checked>
+        <span>Show download notifications</span>
+      </label>
+      <div class="setting-description">
+        Display notifications when downloads start, complete, or fail
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="auto-clear-completed">
+        <span>Auto-clear completed downloads</span>
+      </label>
+      <div class="setting-description">
+        Automatically remove completed downloads from the Downloads tab after 5 minutes
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>Advanced Downloads (yt-dlp)</h2>
+
+    <div class="setting">
+      <label for="ytdlp-path">
+        <span>yt-dlp Executable Path (Optional)</span>
+      </label>
+      <input type="text" id="ytdlp-path" placeholder="Auto-detect or enter path..." style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-secondary); color: var(--text-primary);">
+      <div class="setting-description">
+        Leave empty for auto-detection. Enter custom path if yt-dlp is installed in a non-standard location.
+      </div>
+    </div>
+
+    <div class="setting">
+      <label for="ytdlp-args">
+        <span>Additional yt-dlp Arguments (Advanced)</span>
+      </label>
+      <input type="text" id="ytdlp-args" placeholder="e.g., --format bestvideo+bestaudio" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-secondary); color: var(--text-primary);">
+      <div class="setting-description">
+        Advanced users can add custom yt-dlp command-line arguments
+      </div>
+    </div>
+
+    <div class="setting">
+      <button id="test-ytdlp-btn" class="save-btn" style="margin-top: 10px;">Test yt-dlp Connection</button>
+      <div id="ytdlp-status" style="margin-top: 10px; font-size: 13px;"></div>
+    </div>
+
+    <div class="setting" style="margin-top: 15px; padding: 15px; background-color: var(--bg-primary); border-radius: 4px;">
+      <strong>Note:</strong> yt-dlp integration requires additional setup.
+      <a href="#" id="open-setup-wizard" style="color: var(--border-accent); text-decoration: underline;">Click here to open the setup wizard</a> for step-by-step instructions.
+    </div>
+  </div>
+
   <button id="save-btn" class="save-btn">Save Settings</button>
   <div id="status-message" class="status-message"></div>
 

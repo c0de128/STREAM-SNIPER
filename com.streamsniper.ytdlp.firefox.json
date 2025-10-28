@@ -1,0 +1,9 @@
+{
+  "name": "com.streamsniper.ytdlp",
+  "description": "Native messaging host for Stream Sniper yt-dlp integration",
+  "path": "/path/to/ytdlp-bridge.py",
+  "type": "stdio",
+  "allowed_extensions": [
+    "{EXTENSION_ID}"
+  ]
+}

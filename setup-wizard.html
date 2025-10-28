@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Stream Sniper - yt-dlp Setup Wizard</title>
+  <style>
+    :root {
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --text-primary: #333;
+      --text-secondary: #555;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-accent: #4a90e2;
+      --button-bg: #4a90e2;
+      --button-hover: #357abd;
+      --success-bg: #d4edda;
+      --success-text: #155724;
+      --success-border: #c3e6cb;
+      --warning-bg: #fff3cd;
+      --warning-text: #856404;
+      --info-bg: #d1ecf1;
+      --info-text: #0c5460;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2d2d2d;
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
+      --text-tertiary: #999;
+      --border-color: #444;
+      --success-bg: #1e3a1e;
+      --success-text: #90ee90;
+      --warning-bg: #4a4420;
+      --warning-text: #ffc107;
+      --info-bg: #1a3a42;
+      --info-text: #4dd0e1;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      padding: 0;
+      margin: 0;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 30px 0;
+      border-bottom: 2px solid var(--border-accent);
+      margin-bottom: 30px;
+    }
+
+    .header h1 {
+      margin: 0 0 10px 0;
+      color: var(--text-primary);
+    }
+
+    .header p {
+      color: var(--text-secondary);
+      margin: 0;
+    }
+
+    .wizard-steps {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 40px;
+      position: relative;
+    }
+
+    .wizard-steps::before {
+      content: '';
+      position: absolute;
+      top: 20px;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background-color: var(--border-color);
+      z-index: 0;
+    }
+
+    .wizard-step {
+      flex: 1;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-circle {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: var(--bg-secondary);
+      border: 2px solid var(--border-color);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      margin-bottom: 10px;
+      transition: all 0.3s;
+    }
+
+    .wizard-step.active .step-circle {
+      background-color: var(--button-bg);
+      color: white;
+      border-color: var(--button-bg);
+    }
+
+    .wizard-step.completed .step-circle {
+      background-color: #28a745;
+      color: white;
+      border-color: #28a745;
+    }
+
+    .wizard-step.completed .step-circle::before {
+      content: '✓';
+    }
+
+    .step-label {
+      font-size: 13px;
+      color: var(--text-tertiary);
+    }
+
+    .wizard-step.active .step-label {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .step-content {
+      display: none;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 30px;
+      margin-bottom: 20px;
+    }
+
+    .step-content.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-content h2 {
+      margin-top: 0;
+      color: var(--text-primary);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 10px;
+    }
+
+    .platform-tabs {
+      display: flex;
+      gap: 10px;
+      margin: 20px 0;
+      border-bottom: 2px solid var(--border-color);
+    }
+
+    .platform-tab {
+      padding: 10px 20px;
+      background-color: transparent;
+      border: none;
+      color: var(--text-secondary);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+    }
+
+    .platform-tab:hover {
+      color: var(--text-primary);
+    }
+
+    .platform-tab.active {
+      color: var(--button-bg);
+      border-bottom-color: var(--button-bg);
+    }
+
+    .platform-content {
+      display: none;
+      margin-top: 20px;
+    }
+
+    .platform-content.active {
+      display: block;
+    }
+
+    .command-box {
+      background-color: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 4px;
+      padding: 15px;
+      margin: 15px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      position: relative;
+      overflow-x: auto;
+    }
+
+    .copy-btn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      background-color: var(--button-bg);
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+      font-size: 11px;
+    }
+
+    .copy-btn:hover {
+      background-color: var(--button-hover);
+    }
+
+    .copy-btn.copied {
+      background-color: #28a745;
+    }
+
+    .info-box {
+      background-color: var(--info-bg);
+      color: var(--info-text);
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      border-left: 4px solid var(--button-bg);
+    }
+
+    .warning-box {
+      background-color: var(--warning-bg);
+      color: var(--warning-text);
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      border-left: 4px solid #ffc107;
+    }
+
+    .success-box {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+      padding: 15px;
+      border-radius: 4px;
+      margin: 15px 0;
+      border-left: 4px solid #28a745;
+    }
+
+    .instruction-list {
+      margin: 15px 0;
+      padding-left: 20px;
+    }
+
+    .instruction-list li {
+      margin: 10px 0;
+      line-height: 1.6;
+    }
+
+    .wizard-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 30px;
+    }
+
+    .btn {
+      padding: 10px 24px;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-weight: 500;
+    }
+
+    .btn-primary {
+      background-color: var(--button-bg);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background-color: var(--button-hover);
+    }
+
+    .btn-secondary {
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--border-color);
+    }
+
+    .btn-success {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .btn-success:hover {
+      background-color: #218838;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .test-section {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: var(--bg-primary);
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .test-result {
+      margin-top: 15px;
+      padding: 15px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    .test-result.success {
+      background-color: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .test-result.error {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+
+    .link {
+      color: var(--button-bg);
+      text-decoration: none;
+      font-weight: 500;
+    }
+
+    .link:hover {
+      text-decoration: underline;
+    }
+
+    .download-links {
+      display: flex;
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .download-link {
+      flex: 1;
+      text-align: center;
+      padding: 20px;
+      background-color: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      text-decoration: none;
+      color: var(--text-primary);
+      transition: all 0.3s;
+    }
+
+    .download-link:hover {
+      border-color: var(--button-bg);
+      transform: translateY(-2px);
+    }
+
+    .download-link-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .download-link-title {
+      font-weight: 500;
+      margin-bottom: 5px;
+    }
+
+    .download-link-desc {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚀 yt-dlp Setup Wizard</h1>
+      <p>Follow these steps to enable advanced download capabilities with yt-dlp</p>
+    </div>
+
+    <div class="wizard-steps">
+      <div class="wizard-step active" data-step="1">
+        <div class="step-circle">1</div>
+        <div class="step-label">Install yt-dlp</div>
+      </div>
+      <div class="wizard-step" data-step="2">
+        <div class="step-circle">2</div>
+        <div class="step-label">Install Native Host</div>
+      </div>
+      <div class="wizard-step" data-step="3">
+        <div class="step-circle">3</div>
+        <div class="step-label">Test Connection</div>
+      </div>
+    </div>
+
+    <!-- Step 1: Install yt-dlp -->
+    <div class="step-content active" data-step="1">
+      <h2>Step 1: Install yt-dlp</h2>
+
+      <div class="info-box">
+        <strong>What is yt-dlp?</strong><br>
+        yt-dlp is a powerful command-line tool for downloading videos from streaming platforms. It supports complex streaming formats like HLS and DASH that regular downloads can't handle.
+      </div>
+
+      <p>Choose your operating system:</p>
+
+      <div class="platform-tabs">
+        <button class="platform-tab active" data-platform="windows">Windows</button>
+        <button class="platform-tab" data-platform="macos">macOS</button>
+        <button class="platform-tab" data-platform="linux">Linux</button>
+      </div>
+
+      <!-- Windows Instructions -->
+      <div class="platform-content active" data-platform="windows">
+        <h3>Option 1: Using Scoop (Recommended)</h3>
+        <ol class="instruction-list">
+          <li>Open PowerShell as Administrator</li>
+          <li>Install Scoop if you haven't already:
+            <div class="command-box">
+              Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+              irm get.scoop.sh | iex
+              <button class="copy-btn" onclick="copyCommand(this, 'Set-ExecutionPolicy RemoteSigned -Scope CurrentUser\nirm get.scoop.sh | iex')">Copy</button>
+            </div>
+          </li>
+          <li>Install yt-dlp:
+            <div class="command-box">
+              scoop install yt-dlp
+              <button class="copy-btn" onclick="copyCommand(this, 'scoop install yt-dlp')">Copy</button>
+            </div>
+          </li>
+          <li>Install ffmpeg (required for merging video/audio):
+            <div class="command-box">
+              scoop install ffmpeg
+              <button class="copy-btn" onclick="copyCommand(this, 'scoop install ffmpeg')">Copy</button>
+            </div>
+          </li>
+        </ol>
+
+        <h3>Option 2: Manual Installation</h3>
+        <div class="download-links">
+          <a href="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe" class="download-link">
+            <div class="download-link-icon">📥</div>
+            <div class="download-link-title">Download yt-dlp.exe</div>
+            <div class="download-link-desc">Direct download</div>
+          </a>
+          <a href="https://github.com/BtbN/FFmpeg-Builds/releases" class="download-link">
+            <div class="download-link-icon">🎬</div>
+            <div class="download-link-title">Download FFmpeg</div>
+            <div class="download-link-desc">Required for merging</div>
+          </a>
+        </div>
+        <ol class="instruction-list" start="1">
+          <li>Download yt-dlp.exe and ffmpeg</li>
+          <li>Create folder: <code>C:\Program Files\yt-dlp</code></li>
+          <li>Move both executables to this folder</li>
+          <li>Add to PATH:
+            <ul>
+              <li>Open System Properties → Environment Variables</li>
+              <li>Edit "Path" variable</li>
+              <li>Add: <code>C:\Program Files\yt-dlp</code></li>
+            </ul>
+          </li>
+        </ol>
+      </div>
+
+      <!-- macOS Instructions -->
+      <div class="platform-content" data-platform="macos">
+        <h3>Using Homebrew (Recommended)</h3>
+        <ol class="instruction-list">
+          <li>Open Terminal</li>
+          <li>Install Homebrew if you haven't already:
+            <div class="command-box">
+              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+              <button class="copy-btn" onclick="copyCommand(this, '/bin/bash -c \\'$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\\'')">Copy</button>
+            </div>
+          </li>
+          <li>Install yt-dlp:
+            <div class="command-box">
+              brew install yt-dlp
+              <button class="copy-btn" onclick="copyCommand(this, 'brew install yt-dlp')">Copy</button>
+            </div>
+          </li>
+          <li>Install ffmpeg:
+            <div class="command-box">
+              brew install ffmpeg
+              <button class="copy-btn" onclick="copyCommand(this, 'brew install ffmpeg')">Copy</button>
+            </div>
+          </li>
+        </ol>
+
+        <h3>Using pip</h3>
+        <div class="command-box">
+          python3 -m pip install -U yt-dlp
+          <button class="copy-btn" onclick="copyCommand(this, 'python3 -m pip install -U yt-dlp')">Copy</button>
+        </div>
+      </div>
+
+      <!-- Linux Instructions -->
+      <div class="platform-content" data-platform="linux">
+        <h3>Using Package Manager</h3>
+
+        <p><strong>Ubuntu/Debian:</strong></p>
+        <div class="command-box">
+          sudo apt update
+          sudo apt install yt-dlp ffmpeg
+          <button class="copy-btn" onclick="copyCommand(this, 'sudo apt update\nsudo apt install yt-dlp ffmpeg')">Copy</button>
+        </div>
+
+        <p><strong>Fedora:</strong></p>
+        <div class="command-box">
+          sudo dnf install yt-dlp ffmpeg
+          <button class="copy-btn" onclick="copyCommand(this, 'sudo dnf install yt-dlp ffmpeg')">Copy</button>
+        </div>
+
+        <p><strong>Arch Linux:</strong></p>
+        <div class="command-box">
+          sudo pacman -S yt-dlp ffmpeg
+          <button class="copy-btn" onclick="copyCommand(this, 'sudo pacman -S yt-dlp ffmpeg')">Copy</button>
+        </div>
+
+        <h3>Using pip (Universal)</h3>
+        <div class="command-box">
+          python3 -m pip install -U yt-dlp
+          <button class="copy-btn" onclick="copyCommand(this, 'python3 -m pip install -U yt-dlp')">Copy</button>
+        </div>
+      </div>
+
+      <div class="warning-box">
+        <strong>⚠️ Important:</strong> Make sure yt-dlp is accessible from your command line/terminal. After installation, verify by running <code>yt-dlp --version</code>
+      </div>
+    </div>
+
+    <!-- Step 2: Install Native Messaging Host -->
+    <div class="step-content" data-step="2">
+      <h2>Step 2: Install Native Messaging Host</h2>
+
+      <div class="info-box">
+        <strong>What is a Native Messaging Host?</strong><br>
+        Browser extensions are sandboxed and can't directly execute system commands. A native messaging host acts as a bridge between the extension and yt-dlp on your system.
+      </div>
+
+      <div class="platform-tabs">
+        <button class="platform-tab active" data-platform="windows-host">Windows</button>
+        <button class="platform-tab" data-platform="macos-host">macOS</button>
+        <button class="platform-tab" data-platform="linux-host">Linux</button>
+      </div>
+
+      <!-- Windows Host Instructions -->
+      <div class="platform-content active" data-platform="windows-host">
+        <ol class="instruction-list">
+          <li>Download the native messaging host files:
+            <ul>
+              <li><code>ytdlp-bridge.py</code> - Python bridge script</li>
+              <li><code>com.streamsniper.ytdlp.json</code> - Firefox manifest</li>
+            </ul>
+          </li>
+          <li>Create directory:
+            <div class="command-box">
+              mkdir "%APPDATA%\StreamSniper"
+              <button class="copy-btn" onclick="copyCommand(this, 'mkdir \\'%APPDATA%\\StreamSniper\\'')">Copy</button>
+            </div>
+          </li>
+          <li>Copy <code>ytdlp-bridge.py</code> to this directory</li>
+          <li>Edit <code>com.streamsniper.ytdlp.json</code> and replace <code>/path/to/ytdlp-bridge.py</code> with:
+            <div class="command-box">
+              %APPDATA%\StreamSniper\ytdlp-bridge.py
+              <button class="copy-btn" onclick="copyCommand(this, '%APPDATA%\\StreamSniper\\ytdlp-bridge.py')">Copy</button>
+            </div>
+          </li>
+          <li>Copy manifest to Firefox directory:
+            <div class="command-box">
+              copy com.streamsniper.ytdlp.json "%ProgramFiles%\Mozilla Firefox\distribution"
+              <button class="copy-btn" onclick="copyCommand(this, 'copy com.streamsniper.ytdlp.json \\'%ProgramFiles%\\Mozilla Firefox\\distribution\\'')">Copy</button>
+            </div>
+          </li>
+          <li>Register with Windows Registry:
+            <div class="command-box">
+              reg add "HKCU\Software\Mozilla\NativeMessagingHosts\com.streamsniper.ytdlp" /ve /t REG_SZ /d "%ProgramFiles%\Mozilla Firefox\distribution\com.streamsniper.ytdlp.json" /f
+              <button class="copy-btn" onclick="copyCommand(this, 'reg add \\'HKCU\\Software\\Mozilla\\NativeMessagingHosts\\com.streamsniper.ytdlp\\' /ve /t REG_SZ /d \\'%ProgramFiles%\\Mozilla Firefox\\distribution\\com.streamsniper.ytdlp.json\\' /f')">Copy</button>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <!-- macOS Host Instructions -->
+      <div class="platform-content" data-platform="macos-host">
+        <ol class="instruction-list">
+          <li>Create directory:
+            <div class="command-box">
+              mkdir -p ~/Library/Application\ Support/StreamSniper
+              <button class="copy-btn" onclick="copyCommand(this, 'mkdir -p ~/Library/Application\\ Support/StreamSniper')">Copy</button>
+            </div>
+          </li>
+          <li>Copy <code>ytdlp-bridge.py</code> to this directory</li>
+          <li>Make it executable:
+            <div class="command-box">
+              chmod +x ~/Library/Application\ Support/StreamSniper/ytdlp-bridge.py
+              <button class="copy-btn" onclick="copyCommand(this, 'chmod +x ~/Library/Application\\ Support/StreamSniper/ytdlp-bridge.py')">Copy</button>
+            </div>
+          </li>
+          <li>Edit <code>com.streamsniper.ytdlp.json</code> and replace path</li>
+          <li>Copy manifest to Firefox directory:
+            <div class="command-box">
+              cp com.streamsniper.ytdlp.json ~/Library/Application\ Support/Mozilla/NativeMessagingHosts/
+              <button class="copy-btn" onclick="copyCommand(this, 'cp com.streamsniper.ytdlp.json ~/Library/Application\\ Support/Mozilla/NativeMessagingHosts/')">Copy</button>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <!-- Linux Host Instructions -->
+      <div class="platform-content" data-platform="linux-host">
+        <ol class="instruction-list">
+          <li>Create directory:
+            <div class="command-box">
+              mkdir -p ~/.local/share/StreamSniper
+              <button class="copy-btn" onclick="copyCommand(this, 'mkdir -p ~/.local/share/StreamSniper')">Copy</button>
+            </div>
+          </li>
+          <li>Copy <code>ytdlp-bridge.py</code> to this directory</li>
+          <li>Make it executable:
+            <div class="command-box">
+              chmod +x ~/.local/share/StreamSniper/ytdlp-bridge.py
+              <button class="copy-btn" onclick="copyCommand(this, 'chmod +x ~/.local/share/StreamSniper/ytdlp-bridge.py')">Copy</button>
+            </div>
+          </li>
+          <li>Edit <code>com.streamsniper.ytdlp.json</code> and replace path</li>
+          <li>Copy manifest to Firefox directory:
+            <div class="command-box">
+              mkdir -p ~/.mozilla/native-messaging-hosts
+              cp com.streamsniper.ytdlp.json ~/.mozilla/native-messaging-hosts/
+              <button class="copy-btn" onclick="copyCommand(this, 'mkdir -p ~/.mozilla/native-messaging-hosts\ncp com.streamsniper.ytdlp.json ~/.mozilla/native-messaging-hosts/')">Copy</button>
+            </div>
+          </li>
+        </ol>
+      </div>
+
+      <div class="warning-box">
+        <strong>⚠️ Python Required:</strong> The native messaging host requires Python 3.6 or newer. Verify with: <code>python --version</code> or <code>python3 --version</code>
+      </div>
+    </div>
+
+    <!-- Step 3: Test Connection -->
+    <div class="step-content" data-step="3">
+      <h2>Step 3: Test Connection</h2>
+
+      <p>Let's verify that everything is working correctly:</p>
+
+      <div class="test-section">
+        <h3>Test yt-dlp Installation</h3>
+        <p>Click the button below to test if yt-dlp is accessible and working:</p>
+        <button class="btn btn-primary" onclick="testYtDlp()">Test yt-dlp Connection</button>
+        <div id="test-result"></div>
+      </div>
+
+      <div class="success-box" style="display: none;" id="success-message">
+        <strong>✓ Success!</strong><br>
+        yt-dlp is properly installed and configured. You can now download complex streaming formats with advanced quality control.
+        <br><br>
+        <strong>What you can do now:</strong>
+        <ul>
+          <li>Download HLS (M3U8) and DASH (MPD) streams</li>
+          <li>Select specific quality/bitrate for downloads</li>
+          <li>Merge video and audio tracks automatically</li>
+          <li>Download from platforms with complex DRM-free streams</li>
+        </ul>
+      </div>
+
+      <div class="info-box">
+        <strong>💡 Tip:</strong> You can configure additional yt-dlp settings in the extension options page, including custom command-line arguments and output format preferences.
+      </div>
+    </div>
+
+    <div class="wizard-actions">
+      <button class="btn btn-secondary" id="prev-btn" onclick="previousStep()" disabled>Previous</button>
+      <button class="btn btn-primary" id="next-btn" onclick="nextStep()">Next</button>
+      <button class="btn btn-success" id="finish-btn" onclick="finish()" style="display: none;">Finish Setup</button>
+    </div>
+  </div>
+
+  <script src="browser-polyfill.js"></script>
+  <script src="setup-wizard.js"></script>
+</body>
+</html>

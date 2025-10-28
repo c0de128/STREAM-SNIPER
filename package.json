@@ -1,0 +1,108 @@
+{
+  "name": "stream-sniper",
+  "version": "2.0.0",
+  "description": "Browser extension to detect, preview, download, and capture streaming URLs (HLS, MPEG-DASH, Smooth Streaming) with live playback",
+  "main": "build.js",
+  "scripts": {
+    "build": "node build.js all",
+    "build:firefox": "node build.js firefox",
+    "build:chrome": "node build.js chrome",
+    "build:source": "node build.js source",
+    "build:native": "node build.js native",
+    "clean": "rm -rf builds",
+    "watch": "nodemon --watch . --ext js,html,css,json --ignore builds/ --exec 'npm run build'",
+    "lint": "eslint *.js",
+    "test": "echo \"No tests specified yet\" && exit 0",
+    "package": "npm run clean && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/c0de128/STREAM-SNIPER.git"
+  },
+  "keywords": [
+    "browser-extension",
+    "firefox",
+    "chrome",
+    "edge",
+    "stream-detection",
+    "hls",
+    "m3u8",
+    "mpeg-dash",
+    "mpd",
+    "video-downloader",
+    "stream-capture",
+    "yt-dlp",
+    "youtube-dl",
+    "video-player",
+    "manifest-parser"
+  ],
+  "author": "Stream Sniper Team",
+  "license": "MIT",
+  "devDependencies": {
+    "archiver": "^5.3.2",
+    "eslint": "^8.56.0",
+    "nodemon": "^3.0.2"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=14.0.0",
+    "npm": ">=6.0.0"
+  },
+  "browser": {
+    "fs": false,
+    "path": false
+  },
+  "webExt": {
+    "sourceDir": ".",
+    "artifactsDir": "builds",
+    "ignoreFiles": [
+      "builds",
+      "node_modules",
+      ".git",
+      ".gitignore",
+      "build.js",
+      "package.json",
+      "package-lock.json",
+      "*.md",
+      "manifest-v3.json",
+      "com.streamsniper.ytdlp.*.json",
+      "ytdlp-bridge.py",
+      "NATIVE_MESSAGING_SETUP.md"
+    ],
+    "build": {
+      "overwriteDest": true
+    },
+    "run": {
+      "firefox": "firefox",
+      "browserConsole": true,
+      "startUrl": [
+        "about:debugging#/runtime/this-firefox"
+      ]
+    }
+  },
+  "eslintConfig": {
+    "env": {
+      "browser": true,
+      "es2021": true,
+      "node": true,
+      "webextensions": true
+    },
+    "extends": "eslint:recommended",
+    "parserOptions": {
+      "ecmaVersion": 2021,
+      "sourceType": "module"
+    },
+    "rules": {
+      "no-unused-vars": "warn",
+      "no-console": "off",
+      "semi": ["error", "always"],
+      "quotes": ["error", "single", { "avoidEscape": true }]
+    },
+    "globals": {
+      "browser": "readonly",
+      "chrome": "readonly",
+      "Hls": "readonly",
+      "dashjs": "readonly"
+    }
+  }
+}
