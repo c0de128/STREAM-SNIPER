@@ -500,6 +500,71 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     return true; // Keep message channel open for async response
   }
+
+  // ========== RECORDING HANDLERS ==========
+
+  if (request.action === 'startRecording') {
+    (async () => {
+      try {
+        const { streamData, options } = request;
+        const result = await StreamRecorder.startRecording(streamData, options);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'pauseRecording') {
+    (async () => {
+      try {
+        const result = await StreamRecorder.pauseRecording(request.recordingId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'resumeRecording') {
+    (async () => {
+      try {
+        const result = await StreamRecorder.resumeRecording(request.recordingId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'stopRecording') {
+    (async () => {
+      try {
+        const result = await StreamRecorder.stopRecording(request.recordingId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getRecordings') {
+    const recordings = StreamRecorder.getRecordings();
+    sendResponse({ recordings });
+  }
+
+  if (request.action === 'getActiveRecordings') {
+    const activeRecordings = StreamRecorder.getActiveRecordings();
+    sendResponse({ recordings: activeRecordings });
+  }
 });
 
 // ========== KEYBOARD COMMAND HANDLERS ==========
