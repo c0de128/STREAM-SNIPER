@@ -969,9 +969,103 @@ body.dark-mode .about-list li {
   width: 70%;
 }
 
+/* Error Messages */
+#error-container {
+  margin: 10px 0;
+}
+
+.error-message {
+  background-color: #fff3cd;
+  border: 1px solid #ffc107;
+  border-left: 4px solid #dc3545;
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 15px;
+  animation: slideDown 0.3s ease-out;
+}
+
+.error-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-weight: 600;
+  color: #721c24;
+}
+
+.error-icon {
+  font-size: 18px;
+}
+
+.error-body {
+  color: #856404;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+.error-suggestion {
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 10px;
+  border-radius: 3px;
+  font-size: 13px;
+  color: #495057;
+  line-height: 1.5;
+}
+
+.error-suggestion strong {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.retry-btn {
+  margin-top: 10px;
+  padding: 6px 12px;
+  background-color: #4a90e2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.retry-btn:hover {
+  background-color: #357abd;
+}
+
+/* Dark mode error messages */
+body.dark-mode .error-message {
+  background-color: #3d2f00;
+  border-color: #ffc107;
+  color: #e0e0e0;
+}
+
+body.dark-mode .error-header {
+  color: #ffeb3b;
+}
+
+body.dark-mode .error-body {
+  color: #ccc;
+}
+
+body.dark-mode .error-suggestion {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: #b0b0b0;
+}
+
 /* Smooth Transitions */
 .stream-item {
   animation: fadeInUp 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes fadeInUp {

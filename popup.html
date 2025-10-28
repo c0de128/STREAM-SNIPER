@@ -9,6 +9,9 @@
   <div class="container">
     <h1>Stream Sniper</h1>
 
+    <!-- Error Container -->
+    <div id="error-container" style="display: none;"></div>
+
     <!-- Tab Navigation -->
     <div class="tab-navigation">
       <button class="tab-btn active" data-tab="current">Current</button>
@@ -241,6 +244,7 @@
   </div>
 
   <script src="browser-polyfill.js"></script>
+  <script src="error-handler.js"></script>
   <script src="hls.min.js"></script>
   <script src="dash.all.min.js"></script>
   <script src="storage-manager.js"></script>
