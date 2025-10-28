@@ -10,7 +10,7 @@ class DownloadItem {
     this.pageTitle = streamData.pageTitle || 'Unknown';
     this.pageUrl = streamData.pageUrl || '';
     this.quality = quality;
-    this.filename = this.generateFilename(streamData, quality);
+    this.filename = null; // Will be set asynchronously
     this.state = 'queued'; // queued, downloading, completed, failed, cancelled, paused
     this.progress = 0; // 0-100
     this.bytesReceived = 0;
@@ -23,13 +23,84 @@ class DownloadItem {
     this.timestamp = Date.now();
     this.startTime = null;
     this.endTime = null;
+
+    // Initialize filename asynchronously
+    this.generateFilename(streamData, quality).then(filename => {
+      this.filename = filename;
+    }).catch(error => {
+      console.error('Error generating filename:', error);
+      this.filename = this.generateDefaultFilename(streamData, quality, this.getExtension(streamData.type));
+    });
   }
 
   generateId() {
     return `dl_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  generateFilename(streamData, quality) {
+  async generateFilename(streamData, quality) {
+    // Load template settings
+    const result = await browser.storage.local.get('downloadSettings');
+    const settings = result.downloadSettings || {};
+
+    // Extension based on type
+    const extension = this.getExtension(streamData.type);
+
+    // If custom templates not enabled, use default format
+    if (!settings.useCustomFilenameTemplate) {
+      return this.generateDefaultFilename(streamData, quality, extension);
+    }
+
+    try {
+      // Get template string
+      let template;
+      if (settings.filenameTemplatePreset === 'custom') {
+        template = settings.customFilenameTemplate || '{domain}_{title}_{quality}_{date}';
+      } else {
+        // Use preset template
+        const presets = {
+          'default': '{domain}_{title}_{quality}_{date}',
+          'simple': '{title}_{quality}',
+          'dated': '{date}_{time}_{title}',
+          'organized': '{domain}/{date}_{title}_{quality}'
+        };
+        template = presets[settings.filenameTemplatePreset] || presets['default'];
+      }
+
+      // Build template data
+      const domainParts = streamData.domain.split('.');
+      const siteName = domainParts[domainParts.length - 2] || 'stream';
+      const title = (streamData.pageTitle || 'video').replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+      const qualityStr = quality ? (quality.resolution || quality.bitrate || 'default') : 'default';
+      const now = new Date();
+
+      const templateData = {
+        title: title,
+        domain: siteName,
+        quality: qualityStr,
+        date: now.toISOString().slice(0, 10),
+        time: now.toTimeString().slice(0, 8).replace(/:/g, '-'),
+        type: streamData.type || 'stream',
+        timestamp: Date.now().toString()
+      };
+
+      // Replace template variables
+      let filename = template;
+      for (const [key, value] of Object.entries(templateData)) {
+        filename = filename.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+      }
+
+      // Sanitize filename
+      filename = filename.replace(/[^a-z0-9\-_./]/gi, '_');
+
+      return `${filename}.${extension}`;
+
+    } catch (error) {
+      console.error('Error generating filename from template:', error);
+      return this.generateDefaultFilename(streamData, quality, extension);
+    }
+  }
+
+  generateDefaultFilename(streamData, quality, extension) {
     // Extract domain name without TLD
     const domainParts = streamData.domain.split('.');
     const siteName = domainParts[domainParts.length - 2] || 'stream';
@@ -43,9 +114,6 @@ class DownloadItem {
 
     // Date string
     const date = new Date().toISOString().slice(0, 10);
-
-    // Extension based on type
-    const extension = this.getExtension(streamData.type);
 
     return `${siteName}_${title}${qualityStr}_${date}.${extension}`;
   }

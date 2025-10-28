@@ -290,6 +290,52 @@
         Automatically remove completed downloads from the Downloads tab after 5 minutes
       </div>
     </div>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="use-custom-filename-template">
+        <span>Use custom filename templates</span>
+      </label>
+      <div class="setting-description">
+        Customize how downloaded files are named using template variables
+      </div>
+    </div>
+
+    <div class="setting" id="filename-template-container" style="display: none;">
+      <label for="filename-template-preset">
+        <span>Template Preset</span>
+      </label>
+      <select id="filename-template-preset">
+        <option value="default">{domain}_{title}_{quality}_{date}</option>
+        <option value="simple">{title}_{quality}</option>
+        <option value="dated">{date}_{time}_{title}</option>
+        <option value="organized">{domain}/{date}_{title}_{quality}</option>
+        <option value="custom">Custom template...</option>
+      </select>
+      <div class="setting-description">
+        Choose a preset or create your own custom template
+      </div>
+    </div>
+
+    <div class="setting" id="custom-template-container" style="display: none;">
+      <label for="custom-filename-template">
+        <span>Custom Template</span>
+      </label>
+      <input type="text" id="custom-filename-template" placeholder="{title}_{quality}_{date}" style="width: 100%; padding: 8px; margin-top: 5px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-secondary); color: var(--text-primary); font-family: monospace;">
+      <div class="setting-description" style="margin-top: 10px;">
+        <strong>Available variables:</strong><br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{title}</code> - Page title<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{domain}</code> - Website domain<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{quality}</code> - Video quality (1080p, 720p, etc.)<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{date}</code> - Current date (YYYY-MM-DD)<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{time}</code> - Current time (HH-MM-SS)<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{type}</code> - Stream type (m3u8, mpd, etc.)<br>
+        <code style="background: var(--bg-primary); padding: 2px 6px; border-radius: 3px; margin: 2px;">{timestamp}</code> - Unix timestamp
+      </div>
+      <div id="template-preview" style="margin-top: 10px; padding: 10px; background: var(--bg-primary); border-radius: 4px; font-family: monospace; font-size: 13px;">
+        <strong>Preview:</strong> <span id="template-preview-result" style="color: var(--border-accent);"></span>
+      </div>
+    </div>
   </div>
 
   <div class="section">

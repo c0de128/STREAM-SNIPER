@@ -13,13 +13,38 @@ function setupEventListeners() {
   document.getElementById('save-btn').addEventListener('click', saveSettings);
 
   // Default quality change handler
-  document.getElementById('default-quality').addEventListener('click', function(e) {
+  document.getElementById('default-quality').addEventListener('change', function(e) {
     const presetContainer = document.getElementById('preset-quality-container');
     if (e.target.value === 'preset') {
       presetContainer.style.display = 'block';
     } else {
       presetContainer.style.display = 'none';
     }
+  });
+
+  // Custom filename template handlers
+  document.getElementById('use-custom-filename-template').addEventListener('change', function(e) {
+    const templateContainer = document.getElementById('filename-template-container');
+    if (e.target.checked) {
+      templateContainer.style.display = 'block';
+    } else {
+      templateContainer.style.display = 'none';
+    }
+  });
+
+  document.getElementById('filename-template-preset').addEventListener('change', function(e) {
+    const customContainer = document.getElementById('custom-template-container');
+    if (e.target.value === 'custom') {
+      customContainer.style.display = 'block';
+      updateTemplatePreview();
+    } else {
+      customContainer.style.display = 'none';
+      updateTemplatePreview();
+    }
+  });
+
+  document.getElementById('custom-filename-template').addEventListener('input', function(e) {
+    updateTemplatePreview();
   });
 
   // Test yt-dlp button
@@ -58,7 +83,10 @@ async function loadSettings() {
     showNotifications: true,
     autoClearCompleted: false,
     ytdlpPath: '',
-    ytdlpArgs: ''
+    ytdlpArgs: '',
+    useCustomFilenameTemplate: false,
+    filenameTemplatePreset: 'default',
+    customFilenameTemplate: '{title}_{quality}_{date}'
   };
 
   // Populate general settings
@@ -77,6 +105,9 @@ async function loadSettings() {
   document.getElementById('auto-clear-completed').checked = downloadSettings.autoClearCompleted;
   document.getElementById('ytdlp-path').value = downloadSettings.ytdlpPath;
   document.getElementById('ytdlp-args').value = downloadSettings.ytdlpArgs;
+  document.getElementById('use-custom-filename-template').checked = downloadSettings.useCustomFilenameTemplate;
+  document.getElementById('filename-template-preset').value = downloadSettings.filenameTemplatePreset;
+  document.getElementById('custom-filename-template').value = downloadSettings.customFilenameTemplate;
 
   // Show/hide preset quality based on default quality setting
   const presetContainer = document.getElementById('preset-quality-container');
@@ -85,6 +116,19 @@ async function loadSettings() {
   } else {
     presetContainer.style.display = 'none';
   }
+
+  // Show/hide filename template containers
+  const templateContainer = document.getElementById('filename-template-container');
+  const customContainer = document.getElementById('custom-template-container');
+  if (downloadSettings.useCustomFilenameTemplate) {
+    templateContainer.style.display = 'block';
+    if (downloadSettings.filenameTemplatePreset === 'custom') {
+      customContainer.style.display = 'block';
+    }
+  }
+
+  // Update template preview
+  updateTemplatePreview();
 
   // Apply theme to options page
   applyTheme(settings.darkMode);
@@ -115,7 +159,10 @@ async function saveSettings() {
     showNotifications: document.getElementById('download-notifications').checked,
     autoClearCompleted: document.getElementById('auto-clear-completed').checked,
     ytdlpPath: document.getElementById('ytdlp-path').value.trim(),
-    ytdlpArgs: document.getElementById('ytdlp-args').value.trim()
+    ytdlpArgs: document.getElementById('ytdlp-args').value.trim(),
+    useCustomFilenameTemplate: document.getElementById('use-custom-filename-template').checked,
+    filenameTemplatePreset: document.getElementById('filename-template-preset').value,
+    customFilenameTemplate: document.getElementById('custom-filename-template').value.trim()
   };
 
   // Save to storage
@@ -215,6 +262,52 @@ async function testYtDlp() {
 function openSetupWizard() {
   const wizardUrl = browser.runtime.getURL('setup-wizard.html');
   browser.tabs.create({ url: wizardUrl });
+}
+
+// Update filename template preview
+function updateTemplatePreview() {
+  const useCustom = document.getElementById('use-custom-filename-template').checked;
+  const presetSelect = document.getElementById('filename-template-preset');
+  const customInput = document.getElementById('custom-filename-template');
+  const previewResult = document.getElementById('template-preview-result');
+
+  if (!useCustom) {
+    previewResult.textContent = 'Custom templates disabled - using default format';
+    return;
+  }
+
+  // Get template string
+  let template;
+  if (presetSelect.value === 'custom') {
+    template = customInput.value || '{title}_{quality}_{date}';
+  } else {
+    template = presetSelect.options[presetSelect.selectedIndex].text;
+  }
+
+  // Generate preview with example data
+  const exampleData = {
+    title: 'Example_Video_Title',
+    domain: 'youtube',
+    quality: '1080p',
+    date: new Date().toISOString().slice(0, 10),
+    time: new Date().toTimeString().slice(0, 8).replace(/:/g, '-'),
+    type: 'm3u8',
+    timestamp: Date.now().toString()
+  };
+
+  // Replace variables
+  let preview = template;
+  for (const [key, value] of Object.entries(exampleData)) {
+    preview = preview.replace(new RegExp(`\\{${key}\\}`, 'g'), value);
+  }
+
+  // Sanitize for display
+  preview = preview.replace(/[^a-z0-9\-_./]/gi, '_');
+
+  // Add extension
+  preview += '.mp4';
+
+  previewResult.textContent = preview;
 }
 
 // Load and display Extension ID
