@@ -1,3 +1,8 @@
+// Import scripts for MV3 service worker compatibility
+if (typeof importScripts === 'function') {
+  importScripts('browser-polyfill.js', 'manifest-parser.js', 'download-manager.js');
+}
+
 // Store detected streaming URLs (session storage)
 let detectedStreams = {};
 
@@ -310,5 +315,147 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     }
 
     sendResponse({success: true});
+  }
+
+  // ========== DOWNLOAD HANDLERS ==========
+
+  if (request.action === 'startDownload') {
+    // Start downloading a stream
+    (async () => {
+      try {
+        const { streamData, quality } = request;
+
+        // If quality is not specified, try to get best quality
+        let selectedQuality = quality;
+
+        if (!selectedQuality && (streamData.type === 'm3u8' || streamData.type === 'mpd')) {
+          // Parse manifest to get best quality
+          try {
+            const manifestData = await ManifestParser.parseManifest(streamData.url, streamData.type);
+            if (manifestData && manifestData.qualities && manifestData.qualities.length > 0) {
+              // Get best quality (highest bandwidth)
+              const sorted = manifestData.qualities.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0));
+              selectedQuality = sorted[0];
+            }
+          } catch (e) {
+            console.log('Could not parse manifest for quality selection:', e);
+          }
+        }
+
+        // Add to download queue
+        const downloadItem = await DownloadManager.addToQueue(streamData, selectedQuality);
+
+        sendResponse({ success: true, downloadId: downloadItem.id });
+      } catch (error) {
+        console.error('Error starting download:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true; // Keep message channel open for async response
+  }
+
+  if (request.action === 'addToQueue') {
+    // Add to queue without starting immediately
+    (async () => {
+      try {
+        const { streamData } = request;
+        const downloadItem = new DownloadItem(streamData);
+        downloadItem.setState('queued');
+
+        DownloadManager.downloadQueue.push(downloadItem);
+        await DownloadManager.saveQueue();
+
+        sendResponse({ success: true, downloadId: downloadItem.id });
+      } catch (error) {
+        console.error('Error adding to queue:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'pauseDownload') {
+    (async () => {
+      try {
+        const result = await DownloadManager.pauseDownload(request.downloadId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'resumeDownload') {
+    (async () => {
+      try {
+        const result = await DownloadManager.resumeDownload(request.downloadId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'cancelDownload') {
+    (async () => {
+      try {
+        const result = await DownloadManager.cancelDownload(request.downloadId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'retryDownload') {
+    (async () => {
+      try {
+        const result = await DownloadManager.retryDownload(request.downloadId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getDownloads') {
+    // Get all downloads
+    const downloads = DownloadManager.getDownloads();
+    sendResponse({ downloads });
+  }
+
+  if (request.action === 'getActiveDownloads') {
+    // Get only active downloads
+    const activeDownloads = DownloadManager.getActiveDownloads();
+    sendResponse({ downloads: activeDownloads });
+  }
+
+  if (request.action === 'clearCompletedDownloads') {
+    (async () => {
+      try {
+        await DownloadManager.clearCompleted();
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'isYtDlpAvailable') {
+    // Check if yt-dlp is available
+    const available = DownloadManager.isYtDlpAvailable();
+    sendResponse({ available });
   }
 });
