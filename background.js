@@ -98,7 +98,68 @@ function extractDomain(url) {
   }
 }
 
-// Check if URL is a YouTube stream (manifest/master playlist)
+// YouTube itag to quality mapping
+const YOUTUBE_ITAG_QUALITY = {
+  // Video itags (no audio)
+  '137': '1080p', '136': '720p', '135': '480p', '134': '360p', '133': '240p', '160': '144p',
+  '299': '1080p60', '298': '720p60', '302': '720p60 HDR', '303': '1080p60 HDR',
+  '308': '1440p60', '315': '2160p60', '313': '2160p',
+  '266': '2160p', '264': '1440p', '271': '1440p', '248': '1080p', '247': '720p', '244': '480p',
+
+  // Combined video+audio (older formats)
+  '22': '720p', '18': '360p', '43': '360p', '36': '240p', '17': '144p',
+  '37': '1080p', '38': '3072p',
+
+  // Audio-only itags
+  '140': 'Audio 128k AAC', '141': 'Audio 256k AAC',
+  '251': 'Audio 160k Opus', '250': 'Audio 70k Opus', '249': 'Audio 50k Opus',
+  '171': 'Audio 128k Vorbis', '172': 'Audio 192k Vorbis',
+
+  // VP9 video
+  '337': '2160p60 VP9', '336': '1440p60 VP9', '335': '1080p60 VP9', '334': '720p60 VP9',
+  '272': '2160p VP9', '271': '1440p VP9', '248': '1080p VP9', '247': '720p VP9',
+  '244': '480p VP9', '243': '360p VP9', '242': '240p VP9', '278': '144p VP9'
+};
+
+// Get YouTube video ID from URL
+function getYouTubeVideoId(url) {
+  try {
+    const urlObj = new URL(url);
+    // YouTube video ID is usually in 'id' parameter for videoplayback URLs
+    const videoId = urlObj.searchParams.get('id');
+    if (videoId) return videoId;
+
+    // Fallback: try 'v' parameter
+    const vParam = urlObj.searchParams.get('v');
+    if (vParam) return vParam;
+
+    // Extract from path if present
+    const pathMatch = urlObj.pathname.match(/\/watch\?v=([^&]+)/);
+    if (pathMatch) return pathMatch[1];
+
+    return 'unknown';
+  } catch (e) {
+    return 'unknown';
+  }
+}
+
+// Get quality from YouTube itag parameter
+function getQualityFromItag(url) {
+  try {
+    const urlObj = new URL(url);
+    const itag = urlObj.searchParams.get('itag');
+
+    if (itag && YOUTUBE_ITAG_QUALITY[itag]) {
+      return YOUTUBE_ITAG_QUALITY[itag];
+    }
+
+    return itag ? `itag ${itag}` : 'Unknown Quality';
+  } catch (e) {
+    return 'Unknown Quality';
+  }
+}
+
+// Check if URL is a YouTube stream
 function isYouTubeStream(url) {
   try {
     const urlObj = new URL(url);
@@ -108,11 +169,20 @@ function isYouTubeStream(url) {
     // Check for YouTube/Google Video domains
     const isYouTubeDomain =
       hostname.includes('googlevideo.com') ||
-      hostname.includes('youtube.com');
+      hostname.includes('youtube.com') ||
+      hostname.includes('yt3.ggpht.com');
 
     if (!isYouTubeDomain) return false;
 
-    // Check for manifest paths (master playlists only, not individual segments)
+    // Check for video playback URLs (what YouTube actually uses)
+    if (pathname.includes('/videoplayback')) {
+      // Only accept if it has video mime type (not thumbnails or other assets)
+      const hasVideoMime = url.includes('mime=video') || url.includes('mime=audio');
+      const hasItag = url.includes('itag=');
+      return hasVideoMime || hasItag;
+    }
+
+    // Check for manifest paths (rare but keep for compatibility)
     const isManifest =
       pathname.includes('/manifest/dash') ||
       pathname.includes('/manifest/hls_playlist') ||
@@ -148,6 +218,19 @@ function normalizeYouTubeURL(url) {
 function getStreamType(url) {
   // Check YouTube patterns first (priority detection)
   if (isYouTubeStream(url)) {
+    // Video playback URLs (actual video segments)
+    if (url.includes('/videoplayback')) {
+      const quality = getQualityFromItag(url);
+      const isAudio = quality.toLowerCase().includes('audio');
+
+      return {
+        type: isAudio ? 'youtube-audio' : 'youtube-video',
+        name: isAudio ? `YouTube Audio` : `YouTube Video`,
+        quality: quality
+      };
+    }
+
+    // Manifest URLs (rare)
     if (url.includes('/manifest/dash') || url.includes('/dash/')) {
       return { type: 'mpd', name: 'YouTube DASH' };
     }
@@ -202,6 +285,36 @@ browser.webRequest.onBeforeRequest.addListener(
         detectedStreams[tabId] = [];
       }
 
+      // Special handling for YouTube videos to prevent spam
+      if (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') {
+        const videoId = getYouTubeVideoId(url);
+
+        // Check if we already have a stream for this YouTube video
+        const existingIndex = detectedStreams[tabId].findIndex(s =>
+          (s.type === 'youtube-video' || s.type === 'youtube-audio') &&
+          s.videoId === videoId
+        );
+
+        if (existingIndex !== -1) {
+          // Already have this video - only update if this is higher quality
+          const existing = detectedStreams[tabId][existingIndex];
+          const existingQuality = existing.quality || '';
+          const newQuality = streamInfo.quality || '';
+
+          // Simple quality comparison (prefer higher resolution numbers)
+          const existingNum = parseInt(existingQuality.match(/\d+/)?.[0] || '0');
+          const newNum = parseInt(newQuality.match(/\d+/)?.[0] || '0');
+
+          if (newNum > existingNum) {
+            // Update with higher quality
+            detectedStreams[tabId][existingIndex].url = url;
+            detectedStreams[tabId][existingIndex].quality = newQuality;
+            console.log(`Updated YouTube video ${videoId} to ${newQuality}`);
+          }
+          return; // Skip adding duplicate
+        }
+      }
+
       // Check if already detected in current session (normalize YouTube URLs for comparison)
       const normalizedUrl = normalizeYouTubeURL(url);
       const alreadyDetected = detectedStreams[tabId].some(s =>
@@ -219,7 +332,9 @@ browser.webRequest.onBeforeRequest.addListener(
           domain: extractDomain(url),
           pageUrl: '',
           pageTitle: '',
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          quality: streamInfo.quality || '',
+          videoId: (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') ? getYouTubeVideoId(url) : undefined
         };
 
         detectedStreams[tabId].push(streamData);
