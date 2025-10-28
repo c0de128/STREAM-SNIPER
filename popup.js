@@ -10,6 +10,10 @@ let filterType = 'all';
 let searchQuery = '';
 let favoritesSearchQuery = '';
 
+// Batch download state
+let selectedStreams = new Set();
+let batchPriority = 'NORMAL';
+
 // Initialize when popup loads
 document.addEventListener('DOMContentLoaded', async function() {
   await applyTheme();
@@ -128,6 +132,14 @@ function setupEventListeners() {
   // Recordings
   document.getElementById('stop-all-recordings-btn').addEventListener('click', stopAllRecordings);
   document.getElementById('clear-completed-recordings-btn').addEventListener('click', clearCompletedRecordings);
+
+  // Batch downloads
+  document.getElementById('select-all-btn').addEventListener('click', selectAllStreams);
+  document.getElementById('clear-selection-btn').addEventListener('click', clearStreamSelection);
+  document.getElementById('batch-priority').addEventListener('change', (e) => {
+    batchPriority = e.target.value;
+  });
+  document.getElementById('start-batch-btn').addEventListener('click', startBatchDownload);
 }
 
 // Keyboard Shortcuts Setup
@@ -433,6 +445,22 @@ function displayStreams() {
 
   // Auto-load previews if setting is enabled
   checkAutoPreview(filtered);
+
+  // Update batch toolbar
+  updateBatchToolbar();
+}
+
+// Get filtered streams (helper for batch operations)
+function getFilteredStreams() {
+  return currentStreams.filter(stream => {
+    const matchesSearch = !searchQuery ||
+      stream.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      stream.domain.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesFilter = filterType === 'all' || stream.type === filterType;
+
+    return matchesSearch && matchesFilter;
+  });
 }
 
 // Check if auto-preview is enabled and load previews
@@ -452,6 +480,23 @@ async function checkAutoPreview(streams) {
 function createStreamElement(stream, index) {
   const div = document.createElement('div');
   div.className = 'stream-item';
+  div.dataset.streamUrl = stream.url;
+
+  // Add selected class if stream is in selection
+  if (selectedStreams.has(stream.url)) {
+    div.classList.add('selected');
+  }
+
+  // Batch selection checkbox
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.className = 'stream-checkbox';
+  checkbox.dataset.streamUrl = stream.url;
+  checkbox.checked = selectedStreams.has(stream.url);
+  checkbox.addEventListener('change', (e) => {
+    handleStreamSelection(stream, e.target.checked);
+  });
+  div.appendChild(checkbox);
 
   // Header with badge and quality
   const header = document.createElement('div');
@@ -2075,6 +2120,145 @@ function setupRecordingListeners() {
       loadRecordings();
     }
   }, 1000);
+}
+
+// ========== BATCH DOWNLOAD FUNCTIONS ==========
+
+// Handle stream selection
+function handleStreamSelection(stream, selected) {
+  if (selected) {
+    selectedStreams.add(stream.url);
+    // Send to background
+    browser.runtime.sendMessage({
+      action: 'toggleStreamSelection',
+      streamUrl: stream.url,
+      selected: true
+    });
+  } else {
+    selectedStreams.delete(stream.url);
+    // Send to background
+    browser.runtime.sendMessage({
+      action: 'toggleStreamSelection',
+      streamUrl: stream.url,
+      selected: false
+    });
+  }
+
+  // Update UI
+  updateBatchToolbar();
+  updateStreamItemSelection(stream.url, selected);
+}
+
+// Update stream item visual selection
+function updateStreamItemSelection(streamUrl, selected) {
+  const streamItem = document.querySelector(`.stream-item[data-stream-url="${streamUrl}"]`);
+  if (streamItem) {
+    if (selected) {
+      streamItem.classList.add('selected');
+    } else {
+      streamItem.classList.remove('selected');
+    }
+  }
+}
+
+// Select all visible streams
+async function selectAllStreams() {
+  const filtered = getFilteredStreams();
+
+  if (filtered.length === 0) {
+    showError('No streams to select');
+    return;
+  }
+
+  // Add all to selection
+  const streamUrls = filtered.map(s => s.url);
+  streamUrls.forEach(url => selectedStreams.add(url));
+
+  // Send to background
+  await browser.runtime.sendMessage({
+    action: 'selectAllStreams',
+    streamUrls: streamUrls
+  });
+
+  // Update UI
+  updateBatchToolbar();
+  displayStreams(); // Refresh to show checkboxes
+}
+
+// Clear stream selection
+async function clearStreamSelection() {
+  selectedStreams.clear();
+
+  // Send to background
+  await browser.runtime.sendMessage({
+    action: 'clearSelection'
+  });
+
+  // Update UI
+  updateBatchToolbar();
+  displayStreams(); // Refresh to clear checkboxes
+}
+
+// Start batch download
+async function startBatchDownload() {
+  if (selectedStreams.size === 0) {
+    showError('No streams selected for batch download');
+    return;
+  }
+
+  try {
+    const response = await browser.runtime.sendMessage({
+      action: 'startBatchDownload',
+      priority: batchPriority
+    });
+
+    if (response.success) {
+      showSuccess(`Started batch download of ${selectedStreams.size} stream(s)`);
+
+      // Clear selection
+      await clearStreamSelection();
+
+      // Switch to downloads tab
+      switchTab('downloads');
+    } else {
+      showError('Failed to start batch download: ' + response.error);
+    }
+  } catch (error) {
+    showError('Error starting batch download: ' + error.message);
+  }
+}
+
+// Update batch toolbar visibility and count
+function updateBatchToolbar() {
+  const toolbar = document.getElementById('batch-toolbar');
+  const countEl = document.getElementById('selected-count');
+
+  if (selectedStreams.size > 0) {
+    toolbar.style.display = 'flex';
+    countEl.textContent = selectedStreams.size;
+  } else {
+    toolbar.style.display = 'none';
+  }
+}
+
+// Show success message
+function showSuccess(message) {
+  browser.notifications.create({
+    type: 'basic',
+    iconUrl: 'icon.png',
+    title: 'Success',
+    message: message
+  });
+}
+
+// Show error message
+function showError(message) {
+  browser.notifications.create({
+    type: 'basic',
+    iconUrl: 'icon.png',
+    title: 'Error',
+    message: message
+  });
 }
 
 // Utility functions

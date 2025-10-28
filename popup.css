@@ -1766,6 +1766,122 @@ body.dark-mode .error-suggestion {
   background: var(--text-muted);
 }
 
+/* Batch Download Toolbar */
+.batch-toolbar {
+  background-color: var(--bg-tertiary);
+  border: 2px solid var(--border-accent);
+  border-radius: 5px;
+  padding: 10px;
+  margin-bottom: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.batch-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-count {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.batch-count strong {
+  color: var(--border-accent);
+  font-size: 16px;
+}
+
+.batch-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.batch-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.batch-btn.small {
+  padding: 4px 8px;
+  font-size: 11px;
+}
+
+.batch-btn.primary {
+  background-color: var(--button-bg);
+  color: white;
+}
+
+.batch-btn.primary:hover {
+  background-color: var(--button-hover);
+}
+
+.batch-btn.secondary {
+  background-color: var(--button-secondary-bg);
+  color: white;
+}
+
+.batch-btn.secondary:hover {
+  background-color: var(--button-secondary-hover);
+}
+
+.batch-priority-select {
+  padding: 5px 10px;
+  font-size: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+/* Batch Selection Checkbox */
+.stream-checkbox {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  z-index: 10;
+  accent-color: var(--border-accent);
+}
+
+.stream-item {
+  position: relative;
+  padding-left: 15px;
+}
+
+.stream-item.selected {
+  background-color: rgba(74, 144, 226, 0.1);
+  border-left: 4px solid var(--border-accent);
+}
+
+.stream-item.selected .stream-header {
+  padding-left: 5px;
+}
+
+/* Batch Badge */
+.batch-badge {
+  display: inline-block;
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  background-color: var(--border-accent);
+  color: white;
+  margin-left: 5px;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 600px) {
   body {

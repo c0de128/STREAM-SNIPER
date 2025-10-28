@@ -44,6 +44,26 @@
         </div>
       </div>
 
+      <!-- Batch Download Toolbar -->
+      <div id="batch-toolbar" class="batch-toolbar" style="display: none;">
+        <div class="batch-info">
+          <span class="batch-count">
+            <strong id="selected-count">0</strong> selected
+          </span>
+        </div>
+        <div class="batch-controls">
+          <button id="select-all-btn" class="batch-btn small">Select All</button>
+          <button id="clear-selection-btn" class="batch-btn secondary small">Clear</button>
+          <select id="batch-priority" class="batch-priority-select">
+            <option value="NORMAL">Normal Priority</option>
+            <option value="LOW">Low Priority</option>
+            <option value="HIGH">High Priority</option>
+            <option value="URGENT">Urgent Priority</option>
+          </select>
+          <button id="start-batch-btn" class="batch-btn primary">Start Batch Download</button>
+        </div>
+      </div>
+
       <div id="streams-container">
         <div id="no-streams" class="message">
           No streaming URLs detected on this page.
