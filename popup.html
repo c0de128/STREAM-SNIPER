@@ -12,6 +12,7 @@
     <!-- Tab Navigation -->
     <div class="tab-navigation">
       <button class="tab-btn active" data-tab="current">Current</button>
+      <button class="tab-btn" data-tab="favorites">Favorites</button>
       <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="stats">Statistics</button>
       <button class="tab-btn" data-tab="about">About</button>
@@ -49,6 +50,21 @@
         <button id="copy-all-btn" class="action-btn">Copy All URLs</button>
         <button id="export-btn" class="action-btn">Export</button>
         <button id="clear-btn" class="action-btn secondary">Clear Current</button>
+      </div>
+    </div>
+
+    <!-- Favorites Tab -->
+    <div id="favorites-tab" class="tab-content">
+      <div class="toolbar">
+        <input type="text" id="favorites-search-input" placeholder="Search favorites..." />
+        <button id="clear-favorites-btn" class="action-btn secondary small">Clear Favorites</button>
+      </div>
+
+      <div id="favorites-container">
+        <div id="no-favorites" class="message">
+          No favorite streams yet. Click the ★ button on any stream to add it to favorites.
+        </div>
+        <div id="favorites-list"></div>
       </div>
     </div>
 
@@ -198,6 +214,7 @@
   </div>
 
   <script src="hls.min.js"></script>
+  <script src="dash.all.min.js"></script>
   <script src="storage-manager.js"></script>
   <script src="manifest-parser.js"></script>
   <script src="popup.js"></script>

@@ -1,6 +1,7 @@
 // Player.js - Full-screen stream player
 
 let hlsPlayer = null;
+let dashPlayer = null;
 
 // Get URL parameters
 function getUrlParameter(name) {
@@ -76,15 +77,59 @@ function loadStream(url, type) {
       }
 
     } else if (type === 'mpd') {
-      // Try native DASH support
-      video.src = url;
-      video.addEventListener('loadedmetadata', () => {
-        updateStreamInfo(video);
-      });
+      // Use dash.js for MPEG-DASH streams
+      if (typeof dashjs !== 'undefined') {
+        dashPlayer = dashjs.MediaPlayer().create();
 
-      video.addEventListener('error', (e) => {
-        showError('Failed to load DASH stream. Your browser may not support this format.');
-      });
+        // Configure dash.js for optimal playback
+        dashPlayer.updateSettings({
+          streaming: {
+            buffer: {
+              fastSwitchEnabled: true,
+              bufferTimeAtTopQuality: 30,
+              bufferTimeAtTopQualityLongForm: 60
+            },
+            abr: {
+              autoSwitchBitrate: {
+                video: true,
+                audio: true
+              }
+            }
+          }
+        });
+
+        dashPlayer.initialize(video, url, true);
+
+        dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+          video.play().catch(err => {
+            showError('Playback failed: ' + err.message);
+          });
+        });
+
+        dashPlayer.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+          showError(`Failed to load DASH stream: ${e.error || 'Unknown error'}`);
+        });
+
+        video.addEventListener('loadedmetadata', () => {
+          updateStreamInfo(video, null, dashPlayer);
+        });
+
+        // Update info on quality change
+        dashPlayer.on(dashjs.MediaPlayer.events.QUALITY_CHANGE_RENDERED, () => {
+          updateStreamInfo(video, null, dashPlayer);
+        });
+
+      } else {
+        // Fallback to native DASH support
+        video.src = url;
+        video.addEventListener('loadedmetadata', () => {
+          updateStreamInfo(video);
+        });
+
+        video.addEventListener('error', (e) => {
+          showError('Failed to load DASH stream. Your browser may not support this format.');
+        });
+      }
 
     } else {
       // Try native playback for other formats
@@ -104,7 +149,7 @@ function loadStream(url, type) {
 }
 
 // Update stream information display
-function updateStreamInfo(video, hls = null) {
+function updateStreamInfo(video, hls = null, dash = null) {
   const infoContent = document.getElementById('info-content');
 
   const resolution = video.videoWidth && video.videoHeight
@@ -115,6 +160,7 @@ function updateStreamInfo(video, hls = null) {
   let fps = '';
   let codec = '';
 
+  // Get info from HLS.js
   if (hls && hls.levels && hls.levels.length > 0) {
     const currentLevel = hls.currentLevel >= 0 ? hls.currentLevel : 0;
     const level = hls.levels[currentLevel];
@@ -131,6 +177,23 @@ function updateStreamInfo(video, hls = null) {
       codec = level.videoCodec;
       if (level.audioCodec) {
         codec += ', ' + level.audioCodec;
+      }
+    }
+  }
+
+  // Get info from dash.js
+  if (dash) {
+    const bitrateInfo = dash.getBitrateInfoListFor('video');
+    const currentQuality = dash.getQualityFor('video');
+
+    if (bitrateInfo && bitrateInfo[currentQuality]) {
+      const quality = bitrateInfo[currentQuality];
+      if (quality.bitrate) {
+        bitrate = Math.round(quality.bitrate / 1000) + ' Kbps';
+      }
+      if (quality.width && quality.height) {
+        // Use dash.js provided resolution if available
+        // resolution = `${quality.width}x${quality.height}`;
       }
     }
   }
@@ -256,5 +319,8 @@ function showError(message) {
 window.addEventListener('beforeunload', function() {
   if (hlsPlayer) {
     hlsPlayer.destroy();
+  }
+  if (dashPlayer) {
+    dashPlayer.reset();
   }
 });

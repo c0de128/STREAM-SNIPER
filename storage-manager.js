@@ -5,7 +5,8 @@ const StorageManager = {
   KEYS: {
     HISTORY: 'streamHistory',
     STATS: 'streamStats',
-    SESSION_COUNT: 'sessionCount'
+    SESSION_COUNT: 'sessionCount',
+    FAVORITES: 'streamFavorites'
   },
 
   // Initialize storage
@@ -183,6 +184,78 @@ const StorageManager = {
   async getStatsByType() {
     const stats = await this.getStats();
     return Object.entries(stats.byType);
+  },
+
+  // ========== FAVORITES MANAGEMENT ==========
+
+  // Add stream to favorites
+  async addFavorite(streamData) {
+    const favorites = await this.getFavorites();
+
+    // Check if already in favorites
+    const exists = favorites.some(item => item.url === streamData.url);
+
+    if (!exists) {
+      const favorite = {
+        url: streamData.url,
+        type: streamData.type,
+        typeName: streamData.typeName || streamData.type.toUpperCase(),
+        domain: streamData.domain,
+        pageUrl: streamData.pageUrl || '',
+        pageTitle: streamData.pageTitle || '',
+        timestamp: Date.now(),
+        addedAt: Date.now()
+      };
+
+      favorites.unshift(favorite); // Add to beginning
+      await browser.storage.local.set({ [this.KEYS.FAVORITES]: favorites });
+      return true;
+    }
+
+    return false;
+  },
+
+  // Remove stream from favorites
+  async removeFavorite(url) {
+    const favorites = await this.getFavorites();
+    const filtered = favorites.filter(item => item.url !== url);
+
+    if (filtered.length !== favorites.length) {
+      await browser.storage.local.set({ [this.KEYS.FAVORITES]: filtered });
+      return true;
+    }
+
+    return false;
+  },
+
+  // Get all favorites
+  async getFavorites() {
+    const result = await browser.storage.local.get(this.KEYS.FAVORITES);
+    return result[this.KEYS.FAVORITES] || [];
+  },
+
+  // Check if stream is in favorites
+  async isFavorite(url) {
+    const favorites = await this.getFavorites();
+    return favorites.some(item => item.url === url);
+  },
+
+  // Clear all favorites
+  async clearFavorites() {
+    await browser.storage.local.set({ [this.KEYS.FAVORITES]: [] });
+  },
+
+  // Toggle favorite status
+  async toggleFavorite(streamData) {
+    const isFav = await this.isFavorite(streamData.url);
+
+    if (isFav) {
+      await this.removeFavorite(streamData.url);
+      return false;
+    } else {
+      await this.addFavorite(streamData);
+      return true;
+    }
   }
 };
 

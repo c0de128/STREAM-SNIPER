@@ -4,23 +4,55 @@
   <meta charset="utf-8">
   <title>Stream Sniper - Settings</title>
   <style>
+    :root {
+      --bg-primary: #f5f5f5;
+      --bg-secondary: #ffffff;
+      --text-primary: #333;
+      --text-secondary: #555;
+      --text-tertiary: #666;
+      --border-color: #ddd;
+      --border-accent: #4a90e2;
+      --button-bg: #4a90e2;
+      --button-hover: #357abd;
+      --success-bg: #d4edda;
+      --success-text: #155724;
+      --success-border: #c3e6cb;
+    }
+
+    [data-theme="dark"] {
+      --bg-primary: #1a1a1a;
+      --bg-secondary: #2d2d2d;
+      --text-primary: #e0e0e0;
+      --text-secondary: #b0b0b0;
+      --text-tertiary: #999;
+      --border-color: #444;
+      --border-accent: #4a90e2;
+      --button-bg: #4a90e2;
+      --button-hover: #357abd;
+      --success-bg: #1e3a1e;
+      --success-text: #90ee90;
+      --success-border: #2d5a2d;
+    }
+
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       padding: 20px;
       max-width: 600px;
       margin: 0 auto;
-      background-color: #f5f5f5;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      transition: background-color 0.3s, color 0.3s;
     }
 
     h1 {
-      color: #333;
-      border-bottom: 2px solid #4a90e2;
+      color: var(--text-primary);
+      border-bottom: 2px solid var(--border-accent);
       padding-bottom: 10px;
     }
 
     .section {
-      background-color: white;
-      border: 1px solid #ddd;
+      background-color: var(--bg-secondary);
+      border: 1px solid var(--border-color);
       border-radius: 5px;
       padding: 20px;
       margin-bottom: 20px;
@@ -28,7 +60,7 @@
 
     .section h2 {
       margin-top: 0;
-      color: #555;
+      color: var(--text-secondary);
       font-size: 18px;
     }
 
@@ -51,7 +83,7 @@
 
     .setting-description {
       font-size: 13px;
-      color: #666;
+      color: var(--text-tertiary);
       margin-left: 28px;
       margin-top: 5px;
     }
@@ -59,10 +91,11 @@
     .setting select {
       width: 100%;
       padding: 8px 12px;
-      border: 1px solid #ddd;
+      border: 1px solid var(--border-color);
       border-radius: 4px;
       font-size: 13px;
-      background-color: white;
+      background-color: var(--bg-secondary);
+      color: var(--text-primary);
       cursor: pointer;
       margin-top: 5px;
     }
@@ -74,7 +107,7 @@
     }
 
     .save-btn {
-      background-color: #4a90e2;
+      background-color: var(--button-bg);
       color: white;
       border: none;
       border-radius: 4px;
@@ -85,7 +118,7 @@
     }
 
     .save-btn:hover {
-      background-color: #357abd;
+      background-color: var(--button-hover);
     }
 
     .status-message {
@@ -96,15 +129,29 @@
     }
 
     .status-message.success {
-      background-color: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
+      background-color: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid var(--success-border);
       display: block;
     }
   </style>
 </head>
 <body>
   <h1>Stream Sniper Settings</h1>
+
+  <div class="section">
+    <h2>Appearance</h2>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="dark-mode">
+        <span>Enable dark mode</span>
+      </label>
+      <div class="setting-description">
+        Use dark theme for the extension interface (easier on the eyes in low light)
+      </div>
+    </div>
+  </div>
 
   <div class="section">
     <h2>Notifications</h2>

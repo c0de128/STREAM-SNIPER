@@ -4,20 +4,36 @@
 let currentTab = 'current';
 let currentStreams = [];
 let allHistory = [];
+let allFavorites = [];
 let currentStats = null;
 let filterType = 'all';
 let searchQuery = '';
+let favoritesSearchQuery = '';
 
 // Initialize when popup loads
 document.addEventListener('DOMContentLoaded', async function() {
+  await applyTheme();
   setupTabNavigation();
   setupEventListeners();
   await checkConnectionSpeed();
   await loadDetectionState();
   await loadCurrentStreams();
+  await loadFavorites();
   await loadHistory();
   await loadStatistics();
 });
+
+// Apply theme based on settings
+async function applyTheme() {
+  const result = await browser.storage.local.get('settings');
+  const settings = result.settings || { darkMode: false };
+
+  if (settings.darkMode) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+}
 
 // Tab Navigation
 function setupTabNavigation() {
@@ -47,7 +63,9 @@ function switchTab(tabName) {
   currentTab = tabName;
 
   // Load data for the tab
-  if (tabName === 'history') {
+  if (tabName === 'favorites') {
+    displayFavorites();
+  } else if (tabName === 'history') {
     displayHistory();
   } else if (tabName === 'stats') {
     displayStatistics();
@@ -79,6 +97,14 @@ function setupEventListeners() {
   });
 
   document.getElementById('clear-history-btn').addEventListener('click', clearHistory);
+
+  // Favorites
+  document.getElementById('favorites-search-input').addEventListener('input', (e) => {
+    favoritesSearchQuery = e.target.value;
+    displayFavorites();
+  });
+
+  document.getElementById('clear-favorites-btn').addEventListener('click', clearFavorites);
 
   // Stats
   document.getElementById('reset-stats-btn').addEventListener('click', resetStatistics);
@@ -331,6 +357,24 @@ function createStreamElement(stream, index) {
   const actions = document.createElement('div');
   actions.className = 'stream-actions';
 
+  // Favorite button
+  const favoriteBtn = document.createElement('button');
+  favoriteBtn.className = 'small-btn favorite-btn';
+  favoriteBtn.id = `favorite-btn-${index}`;
+  favoriteBtn.textContent = '☆';
+  favoriteBtn.title = 'Add to favorites';
+  favoriteBtn.addEventListener('click', () => toggleStreamFavorite(stream, favoriteBtn));
+  actions.appendChild(favoriteBtn);
+
+  // Check if already favorited and update button
+  StorageManager.isFavorite(stream.url).then(isFav => {
+    if (isFav) {
+      favoriteBtn.textContent = '★';
+      favoriteBtn.classList.add('favorited');
+      favoriteBtn.title = 'Remove from favorites';
+    }
+  });
+
   // Copy button with dropdown
   const copyDropdown = createCopyDropdown(stream.url);
   actions.appendChild(copyDropdown);
@@ -505,8 +549,9 @@ async function loadDetails(stream, index) {
   }
 }
 
-// Global storage for HLS instances
+// Global storage for HLS and DASH instances
 const hlsInstances = {};
+const dashInstances = {};
 
 // Toggle preview (live video)
 async function togglePreview(stream, index) {
@@ -523,6 +568,12 @@ async function togglePreview(stream, index) {
     if (hlsInstances[index]) {
       hlsInstances[index].destroy();
       delete hlsInstances[index];
+    }
+
+    // Cleanup DASH instance if exists
+    if (dashInstances[index]) {
+      dashInstances[index].reset();
+      delete dashInstances[index];
     }
 
     previewEl.innerHTML = '';
@@ -688,23 +739,68 @@ async function togglePreview(stream, index) {
       }
 
     } else if (stream.type === 'mpd') {
-      // Try native DASH support (Firefox supports it)
-      video.src = stream.url;
-      previewEl.innerHTML = '';
-      wrapper.appendChild(video);
-      wrapper.appendChild(infoOverlay);
-      wrapper.appendChild(closeBtn);
-      previewEl.appendChild(wrapper);
+      // Use dash.js for MPEG-DASH streams
+      if (typeof dashjs !== 'undefined') {
+        const dashPlayer = dashjs.MediaPlayer().create();
 
-      video.addEventListener('loadedmetadata', () => {
-        updateStreamInfo();
-      });
+        // Configure dash.js
+        dashPlayer.updateSettings({
+          streaming: {
+            buffer: {
+              fastSwitchEnabled: true,
+              bufferTimeAtTopQuality: 30,
+              bufferTimeAtTopQualityLongForm: 60
+            }
+          }
+        });
 
-      video.addEventListener('error', (e) => {
-        previewEl.innerHTML = '<div class="preview-error">Failed to load DASH stream. May require additional plugin.</div>';
-        previewBtn.classList.remove('active');
-        previewBtn.textContent = 'Preview';
-      });
+        dashPlayer.initialize(video, stream.url, true);
+
+        dashPlayer.on(dashjs.MediaPlayer.events.STREAM_INITIALIZED, () => {
+          previewEl.innerHTML = '';
+          wrapper.appendChild(video);
+          wrapper.appendChild(infoOverlay);
+          wrapper.appendChild(closeBtn);
+          previewEl.appendChild(wrapper);
+
+          video.play().catch(err => {
+            previewEl.innerHTML = `<div class="preview-error">Playback error: ${err.message}</div>`;
+          });
+        });
+
+        dashPlayer.on(dashjs.MediaPlayer.events.ERROR, (e) => {
+          previewEl.innerHTML = `<div class="preview-error">Failed to load DASH stream: ${e.error}</div>`;
+          previewBtn.classList.remove('active');
+          previewBtn.textContent = 'Preview';
+          dashPlayer.reset();
+        });
+
+        video.addEventListener('loadedmetadata', () => {
+          updateStreamInfo();
+        });
+
+        // Store instance for cleanup
+        dashInstances[index] = dashPlayer;
+
+      } else {
+        // Fallback to native DASH support
+        video.src = stream.url;
+        previewEl.innerHTML = '';
+        wrapper.appendChild(video);
+        wrapper.appendChild(infoOverlay);
+        wrapper.appendChild(closeBtn);
+        previewEl.appendChild(wrapper);
+
+        video.addEventListener('loadedmetadata', () => {
+          updateStreamInfo();
+        });
+
+        video.addEventListener('error', (e) => {
+          previewEl.innerHTML = '<div class="preview-error">Failed to load DASH stream. May require additional plugin.</div>';
+          previewBtn.classList.remove('active');
+          previewBtn.textContent = 'Preview';
+        });
+      }
 
     } else {
       // Try native playback for other formats
@@ -872,6 +968,141 @@ async function clearHistory() {
     allHistory = [];
     displayHistory();
   }
+}
+
+// ========== FAVORITES FUNCTIONS ==========
+
+// Load favorites
+async function loadFavorites() {
+  allFavorites = await StorageManager.getFavorites();
+}
+
+// Display favorites
+function displayFavorites() {
+  const favoritesList = document.getElementById('favorites-list');
+  const noFavoritesMsg = document.getElementById('no-favorites');
+
+  let filtered = allFavorites;
+
+  if (favoritesSearchQuery) {
+    filtered = allFavorites.filter(item =>
+      item.url.toLowerCase().includes(favoritesSearchQuery.toLowerCase()) ||
+      item.domain.toLowerCase().includes(favoritesSearchQuery.toLowerCase()) ||
+      (item.pageTitle && item.pageTitle.toLowerCase().includes(favoritesSearchQuery.toLowerCase()))
+    );
+  }
+
+  if (filtered.length === 0) {
+    noFavoritesMsg.style.display = 'block';
+    favoritesList.innerHTML = '';
+    return;
+  }
+
+  noFavoritesMsg.style.display = 'none';
+  favoritesList.innerHTML = '';
+
+  filtered.forEach(item => {
+    const favoriteItem = createFavoriteElement(item);
+    favoritesList.appendChild(favoriteItem);
+  });
+}
+
+// Create favorite element
+function createFavoriteElement(item) {
+  const div = document.createElement('div');
+  div.className = 'favorite-item';
+
+  const meta = document.createElement('div');
+  meta.className = 'history-meta';
+
+  const domain = document.createElement('span');
+  domain.className = 'history-domain';
+  domain.textContent = item.domain;
+  meta.appendChild(domain);
+
+  const date = document.createElement('span');
+  date.textContent = new Date(item.addedAt || item.timestamp).toLocaleString();
+  meta.appendChild(date);
+
+  div.appendChild(meta);
+
+  const header = document.createElement('div');
+  header.className = 'stream-header';
+
+  const badge = document.createElement('span');
+  badge.className = `stream-type-badge badge-${item.type}`;
+  badge.textContent = item.type.toUpperCase();
+  header.appendChild(badge);
+
+  if (item.pageTitle) {
+    const title = document.createElement('span');
+    title.style.fontSize = '11px';
+    title.style.color = 'var(--text-muted)';
+    title.textContent = item.pageTitle;
+    header.appendChild(title);
+  }
+
+  div.appendChild(header);
+
+  const body = document.createElement('div');
+  body.className = 'stream-body';
+
+  const url = document.createElement('div');
+  url.className = 'stream-url';
+  url.textContent = item.url;
+  body.appendChild(url);
+
+  const actions = document.createElement('div');
+  actions.style.display = 'flex';
+  actions.style.gap = '5px';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'copy-btn';
+  copyBtn.textContent = 'Copy';
+  copyBtn.addEventListener('click', () => copyToClipboard(item.url, copyBtn));
+  actions.appendChild(copyBtn);
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'small-btn secondary';
+  removeBtn.textContent = '★ Remove';
+  removeBtn.addEventListener('click', async () => {
+    await StorageManager.removeFavorite(item.url);
+    await loadFavorites();
+    displayFavorites();
+  });
+  actions.appendChild(removeBtn);
+
+  body.appendChild(actions);
+  div.appendChild(body);
+
+  return div;
+}
+
+// Clear all favorites
+async function clearFavorites() {
+  if (confirm('Are you sure you want to clear all favorites?')) {
+    await StorageManager.clearFavorites();
+    allFavorites = [];
+    displayFavorites();
+  }
+}
+
+// Toggle favorite for a stream
+async function toggleStreamFavorite(stream, button) {
+  const isFavorited = await StorageManager.toggleFavorite(stream);
+
+  if (isFavorited) {
+    button.textContent = '★';
+    button.classList.add('favorited');
+    button.title = 'Remove from favorites';
+  } else {
+    button.textContent = '☆';
+    button.classList.remove('favorited');
+    button.title = 'Add to favorites';
+  }
+
+  // Reload favorites list
+  await loadFavorites();
 }
 
 // Load statistics
