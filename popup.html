@@ -366,6 +366,35 @@
     </div>
   </div>
 
+  <!-- Quality Selector Modal -->
+  <div id="quality-modal" class="modal" style="display: none;">
+    <div class="modal-overlay" id="quality-modal-overlay"></div>
+    <div class="modal-content quality-modal-content">
+      <div class="modal-header">
+        <h2>Quality Selector</h2>
+        <button class="modal-close" id="quality-modal-close">×</button>
+      </div>
+      <div class="modal-body">
+        <!-- Connection Speed Info -->
+        <div class="connection-info">
+          <span class="connection-label">Your Connection:</span>
+          <span class="connection-speed" id="modal-connection-speed">Loading...</span>
+        </div>
+
+        <!-- Recommendation Section -->
+        <div id="quality-recommendation" class="quality-recommendation"></div>
+
+        <!-- Warnings Section -->
+        <div id="quality-warnings" class="quality-warnings"></div>
+
+        <!-- Quality List -->
+        <div id="quality-list" class="quality-list">
+          <div class="loading">Analyzing qualities...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="browser-polyfill.js"></script>
   <script src="error-handler.js"></script>
   <script src="hls.min.js"></script>
