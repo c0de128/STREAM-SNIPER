@@ -458,4 +458,46 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     const available = DownloadManager.isYtDlpAvailable();
     sendResponse({ available });
   }
+
+  if (request.action === 'autoConfigureNativeMessaging') {
+    // Auto-configure native messaging manifest with extension ID
+    (async () => {
+      try {
+        const extensionId = request.extensionId;
+
+        if (!extensionId) {
+          sendResponse({ success: false, error: 'No extension ID provided' });
+          return;
+        }
+
+        // Send message to native host to update manifest
+        const port = browser.runtime.connectNative('com.streamsniper.ytdlp');
+
+        port.postMessage({
+          type: 'updateManifest',
+          extensionId: extensionId
+        });
+
+        port.onMessage.addListener((message) => {
+          if (message.type === 'manifestUpdated') {
+            sendResponse({ success: true });
+          } else if (message.type === 'error') {
+            sendResponse({ success: false, error: message.error });
+          }
+        });
+
+        port.onDisconnect.addListener(() => {
+          if (browser.runtime.lastError) {
+            sendResponse({ success: false, error: browser.runtime.lastError.message });
+          }
+        });
+
+      } catch (error) {
+        console.error('Error auto-configuring native messaging:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true; // Keep message channel open for async response
+  }
 });

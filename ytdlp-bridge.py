@@ -243,6 +243,55 @@ def download_stream(url, output_path, format_id='best', extra_args=None):
             'error': str(e)
         })
 
+def update_manifest(extension_id):
+    """Update native messaging manifest with extension ID"""
+    try:
+        # Determine manifest path based on OS
+        if os.name == 'nt':  # Windows
+            appdata = os.getenv('APPDATA')
+            manifest_path = os.path.join(appdata, 'StreamSniper', 'com.streamsniper.ytdlp.json')
+        else:  # macOS/Linux
+            home = str(Path.home())
+            if sys.platform == 'darwin':  # macOS
+                manifest_path = os.path.join(home, 'Library', 'Application Support', 'StreamSniper', 'com.streamsniper.ytdlp.json')
+            else:  # Linux
+                manifest_path = os.path.join(home, '.local', 'share', 'StreamSniper', 'com.streamsniper.ytdlp.json')
+
+        # Check if manifest exists
+        if not os.path.exists(manifest_path):
+            return {
+                'type': 'error',
+                'error': f'Manifest file not found at {manifest_path}'
+            }
+
+        # Read current manifest
+        with open(manifest_path, 'r') as f:
+            manifest = json.load(f)
+
+        # Update extension ID
+        manifest['allowed_extensions'] = [extension_id]
+
+        # Create backup
+        backup_path = manifest_path + '.backup'
+        with open(backup_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+        # Write updated manifest
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+
+        return {
+            'type': 'manifestUpdated',
+            'path': manifest_path,
+            'extensionId': extension_id
+        }
+
+    except Exception as e:
+        return {
+            'type': 'error',
+            'error': f'Failed to update manifest: {str(e)}'
+        }
+
 def handle_message(message):
     """Handle incoming message from extension"""
     msg_type = message.get('type', '')
@@ -279,6 +328,18 @@ def handle_message(message):
             send_message({
                 'type': 'error',
                 'error': 'Missing URL or output path'
+            })
+
+    elif msg_type == 'updateManifest':
+        # Update native messaging manifest with extension ID
+        extension_id = message.get('extensionId', '')
+        if extension_id:
+            result = update_manifest(extension_id)
+            send_message(result)
+        else:
+            send_message({
+                'type': 'error',
+                'error': 'No extension ID provided'
             })
 
     else:

@@ -3,6 +3,7 @@
 // Load settings when page opens
 document.addEventListener('DOMContentLoaded', async function() {
   await loadSettings();
+  await loadExtensionId();
   setupEventListeners();
 });
 
@@ -12,7 +13,7 @@ function setupEventListeners() {
   document.getElementById('save-btn').addEventListener('click', saveSettings);
 
   // Default quality change handler
-  document.getElementById('default-quality').addEventListener('change', function(e) {
+  document.getElementById('default-quality').addEventListener('click', function(e) {
     const presetContainer = document.getElementById('preset-quality-container');
     if (e.target.value === 'preset') {
       presetContainer.style.display = 'block';
@@ -29,6 +30,10 @@ function setupEventListeners() {
     e.preventDefault();
     openSetupWizard();
   });
+
+  // Extension ID auto-setup buttons
+  document.getElementById('copy-extension-id-btn').addEventListener('click', copyExtensionId);
+  document.getElementById('auto-configure-btn').addEventListener('click', autoConfigureNativeMessaging);
 }
 
 // Load current settings
@@ -210,4 +215,101 @@ async function testYtDlp() {
 function openSetupWizard() {
   const wizardUrl = browser.runtime.getURL('setup-wizard.html');
   browser.tabs.create({ url: wizardUrl });
+}
+
+// Load and display Extension ID
+async function loadExtensionId() {
+  try {
+    // Get the extension ID
+    const extensionId = browser.runtime.id;
+    const displayField = document.getElementById('extension-id-display');
+
+    if (displayField) {
+      displayField.value = extensionId;
+    }
+  } catch (error) {
+    console.error('Error loading extension ID:', error);
+  }
+}
+
+// Copy Extension ID to clipboard
+async function copyExtensionId() {
+  const displayField = document.getElementById('extension-id-display');
+  const copyBtn = document.getElementById('copy-extension-id-btn');
+
+  try {
+    // Select and copy
+    displayField.select();
+    document.execCommand('copy');
+
+    // Visual feedback
+    const originalText = copyBtn.textContent;
+    copyBtn.textContent = 'Copied!';
+    copyBtn.style.backgroundColor = '#28a745';
+
+    setTimeout(() => {
+      copyBtn.textContent = originalText;
+      copyBtn.style.backgroundColor = '';
+    }, 2000);
+  } catch (error) {
+    console.error('Error copying to clipboard:', error);
+    copyBtn.textContent = 'Error';
+    setTimeout(() => {
+      copyBtn.textContent = 'Copy';
+    }, 2000);
+  }
+}
+
+// Auto-configure native messaging
+async function autoConfigureNativeMessaging() {
+  const statusEl = document.getElementById('auto-configure-status');
+  const configureBtn = document.getElementById('auto-configure-btn');
+
+  // Disable button and show progress
+  configureBtn.disabled = true;
+  configureBtn.textContent = '⏳ Configuring...';
+  statusEl.innerHTML = '<span style="color: #17a2b8;">Updating native messaging manifest...</span>';
+
+  try {
+    // Get the extension ID
+    const extensionId = browser.runtime.id;
+
+    // Send message to background to update manifest
+    const response = await browser.runtime.sendMessage({
+      action: 'autoConfigureNativeMessaging',
+      extensionId: extensionId
+    });
+
+    if (response && response.success) {
+      statusEl.innerHTML = `
+        <span style="color: #28a745;">✓ Success! Native messaging configured</span><br>
+        <small style="color: #666;">
+          <br><strong>Next steps:</strong>
+          <br>1. Restart your browser
+          <br>2. Come back to this page
+          <br>3. Click "Test yt-dlp Connection" above
+          <br>4. You should see: ✓ Success!
+        </small>
+      `;
+      configureBtn.textContent = '✓ Configured!';
+      configureBtn.style.backgroundColor = '#28a745';
+    } else {
+      throw new Error(response?.error || 'Configuration failed');
+    }
+  } catch (error) {
+    console.error('Error auto-configuring:', error);
+    statusEl.innerHTML = `
+      <span style="color: #dc3545;">✗ Auto-configuration not available</span><br>
+      <small style="color: #666;">
+        <br>This feature requires Windows with proper permissions.
+        <br><strong>Manual setup instead:</strong>
+        <br>1. Copy your Extension ID above (${browser.runtime.id})
+        <br>2. Click "Open setup wizard" below for instructions
+        <br>3. Or manually edit the manifest file
+      </small>
+    `;
+    configureBtn.disabled = false;
+    configureBtn.textContent = '✨ Auto-Configure Native Messaging';
+    configureBtn.style.backgroundColor = '';
+  }
 }

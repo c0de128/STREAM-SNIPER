@@ -326,6 +326,46 @@
     </div>
   </div>
 
+  <div class="section" style="border: 2px solid var(--border-accent); background: linear-gradient(to bottom, var(--bg-secondary), var(--bg-primary));">
+    <h2 style="color: var(--border-accent);">🤖 Extension ID Auto-Setup (NEW!)</h2>
+
+    <div class="setting" style="background-color: var(--success-bg); padding: 15px; border-radius: 4px; border-left: 4px solid #28a745;">
+      <strong style="color: var(--success-text);">One-Click Setup!</strong>
+      <p style="color: var(--success-text); margin: 10px 0;">No more manual editing! Click the button below to automatically configure native messaging.</p>
+    </div>
+
+    <div class="setting">
+      <label>
+        <span>Your Extension ID:</span>
+      </label>
+      <div style="display: flex; gap: 10px; margin-top: 5px;">
+        <input type="text" id="extension-id-display" readonly style="flex: 1; padding: 8px; border: 1px solid var(--border-color); border-radius: 4px; background-color: var(--bg-primary); color: var(--text-primary); font-family: monospace;">
+        <button id="copy-extension-id-btn" class="save-btn" style="min-width: 80px;">Copy</button>
+      </div>
+      <div class="setting-description">
+        This is your unique extension ID. It's automatically detected - no manual copying needed!
+      </div>
+    </div>
+
+    <div class="setting">
+      <button id="auto-configure-btn" class="save-btn" style="background-color: #28a745; font-size: 16px; padding: 12px 24px;">
+        ✨ Auto-Configure Native Messaging
+      </button>
+      <div id="auto-configure-status" style="margin-top: 10px; font-size: 13px;"></div>
+    </div>
+
+    <div class="setting" style="margin-top: 15px; padding: 15px; background-color: var(--info-bg); border-radius: 4px; border-left: 4px solid var(--border-accent);">
+      <strong>How it works:</strong>
+      <ol style="margin: 10px 0 0 20px; line-height: 1.8;">
+        <li>Extension ID is automatically detected</li>
+        <li>Click "Auto-Configure" button above</li>
+        <li>Native messaging manifest is updated automatically</li>
+        <li>Restart your browser</li>
+        <li>Test yt-dlp connection - Done! ✓</li>
+      </ol>
+    </div>
+  </div>
+
   <button id="save-btn" class="save-btn">Save Settings</button>
   <div id="status-message" class="status-message"></div>
 
