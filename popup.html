@@ -162,6 +162,7 @@
 
     <!-- Statistics Tab -->
     <div id="stats-tab" class="tab-content">
+      <!-- Overview Stats -->
       <div class="stats-grid">
         <div class="stat-card">
           <div class="stat-value" id="total-streams">0</div>
@@ -171,19 +172,94 @@
           <div class="stat-value" id="current-session">0</div>
           <div class="stat-label">This Session</div>
         </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-downloads">0</div>
+          <div class="stat-label">Downloads</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="total-recordings">0</div>
+          <div class="stat-label">Recordings</div>
+        </div>
       </div>
 
+      <!-- Download Analytics -->
       <div class="stats-section">
-        <h3>By Format</h3>
+        <h3>📥 Download Statistics</h3>
+        <div class="analytics-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Total Downloaded:</span>
+            <span class="metric-value" id="download-total-size">0 MB</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Success Rate:</span>
+            <span class="metric-value" id="download-success-rate">0%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Average Speed:</span>
+            <span class="metric-value" id="download-avg-speed">0 Mbps</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Peak Speed:</span>
+            <span class="metric-value" id="download-peak-speed">0 Mbps</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recording Analytics -->
+      <div class="stats-section">
+        <h3>⏺️ Recording Statistics</h3>
+        <div class="analytics-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Total Recorded:</span>
+            <span class="metric-value" id="recording-total-duration">0h 0m</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Total Size:</span>
+            <span class="metric-value" id="recording-total-size">0 MB</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Completed:</span>
+            <span class="metric-value" id="recording-completed">0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Failed:</span>
+            <span class="metric-value" id="recording-failed">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category Breakdown -->
+      <div class="stats-section">
+        <h3>📊 Category Breakdown</h3>
+        <div id="category-breakdown" class="stats-bars"></div>
+      </div>
+
+      <!-- Quality Distribution -->
+      <div class="stats-section">
+        <h3>🎞️ Quality Distribution</h3>
+        <div id="quality-distribution" class="stats-bars"></div>
+      </div>
+
+      <!-- Stream Formats -->
+      <div class="stats-section">
+        <h3>📺 By Format</h3>
         <div id="format-stats" class="stats-list"></div>
       </div>
 
+      <!-- Top Domains -->
       <div class="stats-section">
-        <h3>Top Domains</h3>
+        <h3>🌐 Top Domains</h3>
         <div id="domain-stats" class="stats-list"></div>
       </div>
 
+      <!-- Time Trends -->
+      <div class="stats-section">
+        <h3>📈 Recent Activity</h3>
+        <div id="time-trends" class="stats-timeline"></div>
+      </div>
+
       <div class="stats-actions">
+        <button id="refresh-analytics-btn" class="action-btn">Refresh Analytics</button>
         <button id="reset-stats-btn" class="action-btn secondary">Reset Statistics</button>
       </div>
     </div>
