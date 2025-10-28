@@ -1,0 +1,144 @@
+================================================================================
+  STREAM SNIPER - FINAL STEPS TO COMPLETE SETUP
+================================================================================
+
+CURRENT STATUS:
+  ✓ Firefox is running
+  ✓ Extension built and ready
+  ✓ yt-dlp installed
+  ✓ FFmpeg installed
+  ✓ Native messaging configured
+  ⚠ Extension ID needs to be added to manifest
+
+================================================================================
+  FOLLOW THESE 5 SIMPLE STEPS:
+================================================================================
+
+STEP 1: Load Extension in Firefox
+----------------------------------
+  a. Firefox should already be open to: about:debugging#/runtime/this-firefox
+     (If not, type that in the address bar)
+
+  b. Click the button: "Load Temporary Add-on..."
+
+  c. A file picker will open. Navigate to:
+     C:\Users\KevinMcKay\Downloads\M3U8\builds
+
+  d. Select the file: stream-sniper-firefox-v2.0.zip
+
+  e. Click "Open"
+
+  ✓ Extension loads! You'll see "Stream Sniper" in the list
+
+
+STEP 2: Copy Extension ID
+--------------------------
+  On the about:debugging page, you'll see "Stream Sniper" listed.
+
+  Look for one of these:
+    - "Internal UUID"
+    - "Extension ID"
+    - Or an ID that looks like: {12345678-1234-1234-1234-123456789012}
+
+  COPY THIS ENTIRE ID (including the curly braces { })
+
+  Example: {a1b2c3d4-e5f6-7890-abcd-ef1234567890}
+
+
+STEP 3: Update Manifest File
+-----------------------------
+  a. Open Notepad (or any text editor)
+
+  b. Open this file:
+     C:\Users\KevinMcKay\AppData\Roaming\StreamSniper\com.streamsniper.ytdlp.json
+
+  c. You'll see: "{EXTENSION_ID_PLACEHOLDER}"
+
+  d. Replace {EXTENSION_ID_PLACEHOLDER} with YOUR Extension ID from Step 2
+     (Keep the quotes around it!)
+
+  e. Save the file
+
+
+STEP 4: Restart Firefox
+------------------------
+  Close Firefox completely and restart it.
+
+
+STEP 5: Reload Extension
+-------------------------
+  a. Go back to: about:debugging#/runtime/this-firefox
+
+  b. Click "Load Temporary Add-on..." again
+
+  c. Select: stream-sniper-firefox-v2.0.zip
+
+  ✓ Extension is now fully loaded with yt-dlp support!
+
+
+================================================================================
+  TEST IT WORKS:
+================================================================================
+
+Test 1: Basic Functionality
+----------------------------
+  1. Visit YouTube.com or Twitch.tv
+  2. Click the Stream Sniper icon in your toolbar
+  3. You should see detected streams appear!
+  4. Try clicking a stream to preview it
+
+
+Test 2: yt-dlp Integration
+---------------------------
+  1. Click the Stream Sniper icon
+  2. Click the gear icon (Settings)
+  3. Scroll down to "Advanced Downloads (yt-dlp)"
+  4. Click: "Test yt-dlp Connection"
+
+  Expected result: ✓ "Success! yt-dlp is working correctly"
+
+  If it fails, double-check:
+    - Did you copy the extension ID correctly? (with curly braces)
+    - Did you save the manifest file?
+    - Did you restart Firefox?
+
+
+================================================================================
+  HELPER FILES:
+================================================================================
+
+  START_HERE.bat         - Full guided setup (run this if you get stuck)
+  check-status.bat       - Check what's configured
+  edit-manifest.bat      - Quick manifest editor
+
+  LOAD_EXTENSION.html    - Visual step-by-step guide
+  QUICK_START.md         - Quick reference
+
+================================================================================
+  TROUBLESHOOTING:
+================================================================================
+
+Extension not detecting streams?
+  - Reload the webpage after loading extension
+  - Check detection toggle is ON in popup
+
+yt-dlp test fails?
+  - Verify Extension ID is correct in manifest (with curly braces)
+  - Make sure you restarted Firefox after updating manifest
+  - Check the ID matches exactly what's shown in about:debugging
+
+Can't find Extension ID?
+  - Go to: about:debugging#/runtime/this-firefox
+  - Find "Stream Sniper" in the list
+  - The ID is shown right below the extension name
+  - Format: {xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx}
+
+================================================================================
+  YOU'RE ALMOST THERE!
+================================================================================
+
+The hardest part is done. Just follow the 5 steps above and you'll be
+capturing streams in 2 minutes!
+
+Happy streaming! 🎬
+================================================================================
