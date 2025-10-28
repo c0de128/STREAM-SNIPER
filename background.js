@@ -250,6 +250,16 @@ function getStreamType(url) {
 
 // Validate stream URL accessibility
 async function validateStreamURL(url) {
+  // Skip validation for YouTube streams - they require authentication
+  const isYouTube = url.includes('googlevideo.com') && url.includes('/videoplayback');
+  if (isYouTube) {
+    return {
+      valid: true,
+      status: 'youtube',
+      statusText: 'YouTube (authenticated)'
+    };
+  }
+
   try {
     const response = await fetch(url, { method: 'HEAD' });
     return {
@@ -480,13 +490,9 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
   if (request.action === 'validateStream') {
     // Validate if stream URL is accessible
-    fetch(request.url, { method: 'HEAD' })
-      .then(response => {
-        sendResponse({
-          valid: response.ok,
-          status: response.status,
-          statusText: response.statusText
-        });
+    validateStreamURL(request.url)
+      .then(result => {
+        sendResponse(result);
       })
       .catch(error => {
         sendResponse({

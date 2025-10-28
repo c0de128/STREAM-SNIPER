@@ -550,7 +550,12 @@ function createStreamElement(stream, index) {
 
   // Display pre-validated results if available
   if (stream.validationStatus !== undefined) {
-    if (stream.validationValid) {
+    if (stream.validationStatus === 'youtube') {
+      // YouTube stream - show warning
+      status.textContent = '⚠ YouTube (authenticated)';
+      status.className = 'stream-status status-youtube';
+      status.title = 'YouTube streams require authentication and cannot be tested directly. Use yt-dlp to download.';
+    } else if (stream.validationValid) {
       status.textContent = `✓ ${stream.validationStatus}`;
       status.className = 'stream-status status-validated';
     } else {
@@ -939,6 +944,16 @@ async function validateStream(url, index) {
   const statusEl = document.getElementById(`status-${index}`);
   statusEl.textContent = 'Testing...';
   statusEl.className = 'stream-status status-unknown';
+
+  // Check if this is a YouTube stream
+  const isYouTube = url.includes('googlevideo.com') && url.includes('/videoplayback');
+
+  if (isYouTube) {
+    statusEl.textContent = '⚠ YouTube (authenticated)';
+    statusEl.className = 'stream-status status-youtube';
+    statusEl.title = 'YouTube streams require authentication and cannot be tested directly. Use yt-dlp to download.';
+    return;
+  }
 
   const response = await browser.runtime.sendMessage({
     action: 'validateStream',

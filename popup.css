@@ -422,6 +422,7 @@ h3 {
 .status-validated { color: #5cb85c; }
 .status-error { color: #d9534f; }
 .status-unknown { color: #999; }
+.status-youtube { color: #ff9800; font-weight: 500; }
 
 .stream-body {
   display: flex;
