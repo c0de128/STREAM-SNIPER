@@ -32,5 +32,38 @@
   "options_ui": {
     "page": "options.html",
     "browser_style": true
+  },
+
+  "commands": {
+    "_execute_browser_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Open Stream Sniper popup"
+    },
+    "toggle-detection": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Toggle stream detection on/off"
+    },
+    "copy-url": {
+      "suggested_key": {
+        "default": "Alt+C"
+      },
+      "description": "Copy selected stream URL to clipboard"
+    },
+    "download-stream": {
+      "suggested_key": {
+        "default": "Alt+D"
+      },
+      "description": "Download selected stream"
+    },
+    "validate-stream": {
+      "suggested_key": {
+        "default": "Alt+V"
+      },
+      "description": "Validate selected stream"
+    }
   }
 }

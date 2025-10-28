@@ -501,3 +501,52 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     return true; // Keep message channel open for async response
   }
 });
+
+// ========== KEYBOARD COMMAND HANDLERS ==========
+
+browser.commands.onCommand.addListener(async function(command) {
+  console.log('Keyboard command received:', command);
+
+  if (command === 'toggle-detection') {
+    // Toggle stream detection on/off
+    detectionEnabled = !detectionEnabled;
+    await browser.storage.local.set({ detectionEnabled: detectionEnabled });
+
+    // Show notification
+    browser.notifications.create({
+      type: 'basic',
+      iconUrl: 'icon.png',
+      title: 'Stream Detection',
+      message: detectionEnabled ? 'Detection enabled' : 'Detection disabled'
+    });
+
+    // Clear badges if disabled
+    if (!detectionEnabled) {
+      browser.tabs.query({}).then(tabs => {
+        tabs.forEach(tab => {
+          browser.browserAction.setBadgeText({
+            text: '',
+            tabId: tab.id
+          });
+        });
+      });
+    }
+  }
+
+  // For other commands, send message to popup (if open)
+  // The popup will handle these commands
+  browser.runtime.sendMessage({
+    action: 'keyboardCommand',
+    command: command
+  }).catch(() => {
+    // Popup not open - show notification
+    if (command === 'copy-url' || command === 'download-stream' || command === 'validate-stream') {
+      browser.notifications.create({
+        type: 'basic',
+        iconUrl: 'icon.png',
+        title: 'Stream Sniper',
+        message: 'Please open the popup first to use this shortcut'
+      });
+    }
+  });
+});

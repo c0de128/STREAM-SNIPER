@@ -303,6 +303,12 @@ h3 {
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
 
+.stream-item.focused {
+  border: 2px solid #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.2);
+  background-color: rgba(74, 144, 226, 0.05);
+}
+
 .stream-header {
   display: flex;
   align-items: center;
@@ -781,6 +787,12 @@ body.dark-mode .stats-section {
   background-color: #2d2d2d;
   border-color: #444;
   color: #e0e0e0;
+}
+
+body.dark-mode .stream-item.focused {
+  border: 2px solid #4a90e2;
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.3);
+  background-color: rgba(74, 144, 226, 0.1);
 }
 
 body.dark-mode .stream-url,

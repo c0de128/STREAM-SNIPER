@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async function() {
   await applyTheme();
   setupTabNavigation();
   setupEventListeners();
+  setupKeyboardShortcuts();
   await checkConnectionSpeed();
   await loadDetectionState();
   await loadCurrentStreams();
@@ -119,6 +120,135 @@ function setupEventListeners() {
   // Downloads
   document.getElementById('pause-all-btn').addEventListener('click', pauseAllDownloads);
   document.getElementById('clear-completed-btn').addEventListener('click', clearCompletedDownloads);
+}
+
+// Keyboard Shortcuts Setup
+function setupKeyboardShortcuts() {
+  // Listen for keyboard commands from background script
+  browser.runtime.onMessage.addListener((message) => {
+    if (message.action === 'keyboardCommand') {
+      handleKeyboardCommand(message.command);
+    }
+  });
+
+  // Listen for keyboard events in popup
+  document.addEventListener('keydown', (e) => {
+    // Ignore if typing in input field
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      return;
+    }
+
+    // Tab navigation: 1-5 keys to switch tabs
+    if (e.key >= '1' && e.key <= '5' && !e.ctrlKey && !e.altKey) {
+      const tabIndex = parseInt(e.key) - 1;
+      const tabs = ['current', 'downloads', 'favorites', 'history', 'stats'];
+      if (tabIndex < tabs.length) {
+        switchTab(tabs[tabIndex]);
+        e.preventDefault();
+      }
+    }
+
+    // Arrow key navigation in stream lists
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      navigateStreams(e.key === 'ArrowDown' ? 1 : -1);
+      e.preventDefault();
+    }
+
+    // Enter to select/download focused stream
+    if (e.key === 'Enter') {
+      const focused = document.querySelector('.stream-item.focused');
+      if (focused) {
+        const downloadBtn = focused.querySelector('.btn-download');
+        if (downloadBtn) {
+          downloadBtn.click();
+          e.preventDefault();
+        }
+      }
+    }
+
+    // Escape to close search or details
+    if (e.key === 'Escape') {
+      const searchInput = document.getElementById('search-input');
+      if (searchInput && searchInput.value) {
+        searchInput.value = '';
+        searchQuery = '';
+        displayStreams();
+        e.preventDefault();
+      }
+    }
+  });
+}
+
+// Handle keyboard commands from background script
+function handleKeyboardCommand(command) {
+  console.log('Handling keyboard command:', command);
+
+  const focused = getFocusedStream();
+
+  switch (command) {
+    case 'copy-url':
+      if (focused) {
+        copyStreamURL(focused.url);
+      }
+      break;
+
+    case 'download-stream':
+      if (focused) {
+        startStreamDownload(focused);
+      }
+      break;
+
+    case 'validate-stream':
+      if (focused) {
+        validateStream(focused);
+      }
+      break;
+  }
+}
+
+// Navigate through stream list with arrow keys
+function navigateStreams(direction) {
+  const streamItems = document.querySelectorAll('.stream-item:not([style*="display: none"])');
+  if (streamItems.length === 0) return;
+
+  let currentIndex = Array.from(streamItems).findIndex(item => item.classList.contains('focused'));
+
+  // Remove current focus
+  streamItems.forEach(item => item.classList.remove('focused'));
+
+  // Calculate new index
+  if (currentIndex === -1) {
+    currentIndex = direction > 0 ? 0 : streamItems.length - 1;
+  } else {
+    currentIndex = (currentIndex + direction + streamItems.length) % streamItems.length;
+  }
+
+  // Add focus to new item
+  const newFocused = streamItems[currentIndex];
+  newFocused.classList.add('focused');
+
+  // Scroll into view
+  newFocused.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// Get currently focused stream data
+function getFocusedStream() {
+  const focused = document.querySelector('.stream-item.focused');
+  if (!focused) return null;
+
+  const streamUrl = focused.querySelector('.stream-url')?.textContent;
+  if (!streamUrl) return null;
+
+  // Find stream data from current streams
+  if (currentTab === 'current') {
+    return currentStreams.find(s => s.url === streamUrl);
+  } else if (currentTab === 'history') {
+    return allHistory.find(s => s.url === streamUrl);
+  } else if (currentTab === 'favorites') {
+    return allFavorites.find(s => s.url === streamUrl);
+  }
+
+  return null;
 }
 
 // Check connection speed and show warning if slow
