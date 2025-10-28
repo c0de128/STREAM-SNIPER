@@ -190,6 +190,13 @@ browser.webRequest.onBeforeRequest.addListener(
           // Save to persistent storage
           await StorageManager.saveStream(streamData);
 
+          // Track stream detection in analytics
+          if (typeof AnalyticsEngine !== 'undefined') {
+            AnalyticsEngine.trackStreamDetection(streamData).catch(err => {
+              console.log('Analytics tracking failed (non-critical):', err);
+            });
+          }
+
           // Show notification if enabled
           const settings = await StorageManager.getSettings();
           if (settings.notifications) {
@@ -773,6 +780,51 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     (async () => {
       try {
         await MetadataExtractor.clearCache();
+        sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  // ========== ANALYTICS HANDLERS ==========
+
+  if (request.action === 'getAnalyticsSummary') {
+    const summary = AnalyticsEngine.getAnalyticsSummary();
+    sendResponse({ success: true, summary: summary });
+  }
+
+  if (request.action === 'getCategoryBreakdown') {
+    const breakdown = AnalyticsEngine.getCategoryBreakdown();
+    sendResponse({ success: true, breakdown: breakdown });
+  }
+
+  if (request.action === 'getQualityDistribution') {
+    const distribution = AnalyticsEngine.getQualityDistribution();
+    sendResponse({ success: true, distribution: distribution });
+  }
+
+  if (request.action === 'getDomainStats') {
+    const stats = AnalyticsEngine.getDomainStats();
+    sendResponse({ success: true, stats: stats });
+  }
+
+  if (request.action === 'getTimeTrends') {
+    const trends = AnalyticsEngine.getTimeTrends(request.period || 'day');
+    sendResponse({ success: true, trends: trends });
+  }
+
+  if (request.action === 'getPerformanceMetrics') {
+    const metrics = AnalyticsEngine.getPerformanceMetrics();
+    sendResponse({ success: true, metrics: metrics });
+  }
+
+  if (request.action === 'resetAnalytics') {
+    (async () => {
+      try {
+        await AnalyticsEngine.resetAnalytics();
         sendResponse({ success: true });
       } catch (error) {
         sendResponse({ success: false, error: error.message });

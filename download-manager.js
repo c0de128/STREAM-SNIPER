@@ -339,6 +339,11 @@ class NativeDownloader {
     if (typeof BatchController !== 'undefined') {
       BatchController.onDownloadComplete(downloadItem.id);
     }
+
+    // Track in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackDownload(downloadItem.toJSON(), 'completed').catch(() => {});
+    }
   }
 
   notifyFailure(downloadItem) {
@@ -358,6 +363,11 @@ class NativeDownloader {
     // Notify BatchController if available
     if (typeof BatchController !== 'undefined') {
       BatchController.onDownloadFailed(downloadItem.id, downloadItem.error);
+    }
+
+    // Track in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackDownload(downloadItem.toJSON(), 'failed').catch(() => {});
     }
   }
 }
@@ -501,6 +511,11 @@ class YtDlpDownloader {
     // Notify BatchController if available
     if (typeof BatchController !== 'undefined') {
       BatchController.onDownloadFailed(downloadItem.id, downloadItem.error);
+    }
+
+    // Track in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackDownload(downloadItem.toJSON(), 'failed').catch(() => {});
     }
   }
 }

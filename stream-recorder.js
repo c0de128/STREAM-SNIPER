@@ -413,6 +413,11 @@ const StreamRecorder = {
     });
 
     this.sendToPopup({ action: 'recordingStopped', recording: session.toJSON() });
+
+    // Track in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackRecording(session.toJSON(), 'completed').catch(() => {});
+    }
   },
 
   notifyRecordingFailed(session) {
@@ -424,6 +429,11 @@ const StreamRecorder = {
     });
 
     this.sendToPopup({ action: 'recordingFailed', recording: session.toJSON() });
+
+    // Track in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackRecording(session.toJSON(), 'failed').catch(() => {});
+    }
   },
 
   notifyRecordingSplit(session, filename) {
