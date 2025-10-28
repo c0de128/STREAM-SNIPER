@@ -16,6 +16,7 @@
     <div class="tab-navigation">
       <button class="tab-btn active" data-tab="current">Current</button>
       <button class="tab-btn" data-tab="downloads">Downloads</button>
+      <button class="tab-btn" data-tab="recordings">Recordings</button>
       <button class="tab-btn" data-tab="favorites">Favorites</button>
       <button class="tab-btn" data-tab="history">History</button>
       <button class="tab-btn" data-tab="stats">Statistics</button>
@@ -79,6 +80,32 @@
       <div class="downloads-info">
         <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px;">
           Downloads are managed by your browser. Check your browser's download manager for completed files.
+        </p>
+      </div>
+    </div>
+
+    <!-- Recordings Tab -->
+    <div id="recordings-tab" class="tab-content">
+      <div class="toolbar">
+        <span class="recording-counter">
+          Active: <span id="active-recordings">0</span>
+        </span>
+        <div class="recording-actions">
+          <button id="stop-all-recordings-btn" class="action-btn small secondary">Stop All</button>
+          <button id="clear-completed-recordings-btn" class="action-btn secondary small">Clear Completed</button>
+        </div>
+      </div>
+
+      <div id="recordings-container">
+        <div id="no-recordings" class="message">
+          No recordings yet. Click "⏺ Record" on any stream to start recording.
+        </div>
+        <div id="recordings-list"></div>
+      </div>
+
+      <div class="recordings-info">
+        <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 10px;">
+          Recordings are saved using your browser's download manager or yt-dlp (if configured).
         </p>
       </div>
     </div>
