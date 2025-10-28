@@ -334,6 +334,11 @@ class NativeDownloader {
       downloadId: downloadItem.id,
       data: downloadItem.toJSON()
     }).catch(() => {});
+
+    // Notify BatchController if available
+    if (typeof BatchController !== 'undefined') {
+      BatchController.onDownloadComplete(downloadItem.id);
+    }
   }
 
   notifyFailure(downloadItem) {
@@ -349,6 +354,11 @@ class NativeDownloader {
       downloadId: downloadItem.id,
       data: downloadItem.toJSON()
     }).catch(() => {});
+
+    // Notify BatchController if available
+    if (typeof BatchController !== 'undefined') {
+      BatchController.onDownloadFailed(downloadItem.id, downloadItem.error);
+    }
   }
 }
 
@@ -487,6 +497,11 @@ class YtDlpDownloader {
       downloadId: downloadItem.id,
       data: downloadItem.toJSON()
     }).catch(() => {});
+
+    // Notify BatchController if available
+    if (typeof BatchController !== 'undefined') {
+      BatchController.onDownloadFailed(downloadItem.id, downloadItem.error);
+    }
   }
 }
 

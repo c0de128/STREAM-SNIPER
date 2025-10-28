@@ -20,7 +20,7 @@
   ],
 
   "background": {
-    "scripts": ["browser-polyfill.js", "error-handler.js", "manifest-parser.js", "download-manager.js", "stream-recorder.js", "background.js"]
+    "scripts": ["browser-polyfill.js", "error-handler.js", "manifest-parser.js", "download-manager.js", "stream-recorder.js", "batch-controller.js", "background.js"]
   },
 
   "browser_action": {

@@ -565,6 +565,154 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     const activeRecordings = StreamRecorder.getActiveRecordings();
     sendResponse({ recordings: activeRecordings });
   }
+
+  // ========== BATCH DOWNLOAD HANDLERS ==========
+
+  if (request.action === 'toggleStreamSelection') {
+    const result = BatchController.toggleStreamSelection(request.streamUrl, request.selected);
+    sendResponse(result);
+  }
+
+  if (request.action === 'selectAllStreams') {
+    const result = BatchController.selectAllStreams(request.streamUrls);
+    sendResponse(result);
+  }
+
+  if (request.action === 'clearSelection') {
+    const result = BatchController.clearSelection();
+    sendResponse(result);
+  }
+
+  if (request.action === 'getSelectionCount') {
+    const count = BatchController.getSelectionCount();
+    sendResponse({ count: count });
+  }
+
+  if (request.action === 'isStreamSelected') {
+    const isSelected = BatchController.isStreamSelected(request.streamUrl);
+    sendResponse({ isSelected: isSelected });
+  }
+
+  if (request.action === 'startBatchDownload') {
+    (async () => {
+      try {
+        const { streams, options } = request;
+        const result = await BatchController.startBatchDownload(streams, options);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'downloadAllFromPage') {
+    (async () => {
+      try {
+        const { streams, options } = request;
+        const result = await BatchController.downloadAllFromPage(streams, options);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'pauseBatch') {
+    (async () => {
+      try {
+        const result = await BatchController.pauseBatch(request.batchId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'resumeBatch') {
+    (async () => {
+      try {
+        const result = await BatchController.resumeBatch(request.batchId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'cancelBatch') {
+    (async () => {
+      try {
+        const result = await BatchController.cancelBatch(request.batchId);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'setBatchPriority') {
+    (async () => {
+      try {
+        const result = await BatchController.setBatchPriority(request.batchId, request.priority);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getAllBatches') {
+    const batches = BatchController.getAllBatches();
+    sendResponse({ batches: batches });
+  }
+
+  if (request.action === 'getBatchStats') {
+    const stats = BatchController.getBatchStats(request.batchId);
+    sendResponse({ stats: stats });
+  }
+
+  if (request.action === 'setMaxConcurrent') {
+    (async () => {
+      try {
+        const result = await BatchController.setMaxConcurrent(request.limit);
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getBatchSettings') {
+    const settings = BatchController.getSettings();
+    sendResponse(settings);
+  }
+
+  if (request.action === 'clearCompletedBatches') {
+    (async () => {
+      try {
+        const result = await BatchController.clearCompletedBatches();
+        sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
 });
 
 // ========== KEYBOARD COMMAND HANDLERS ==========
