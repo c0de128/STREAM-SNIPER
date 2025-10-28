@@ -343,20 +343,35 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       try {
         const { streamData, quality } = request;
 
-        // If quality is not specified, try to get best quality
+        // If quality is not specified, try to get best quality using intelligent analysis
         let selectedQuality = quality;
 
         if (!selectedQuality && (streamData.type === 'm3u8' || streamData.type === 'mpd')) {
-          // Parse manifest to get best quality
+          // Use QualityAnalyzer for intelligent quality selection
           try {
-            const manifestData = await ManifestParser.parseManifest(streamData.url, streamData.type);
-            if (manifestData && manifestData.qualities && manifestData.qualities.length > 0) {
-              // Get best quality (highest bandwidth)
-              const sorted = manifestData.qualities.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0));
-              selectedQuality = sorted[0];
+            if (typeof QualityAnalyzer !== 'undefined') {
+              const analysis = await QualityAnalyzer.analyzeStream(streamData);
+
+              if (analysis.success && analysis.recommendation) {
+                // Use recommended quality based on connection speed and compatibility
+                selectedQuality = analysis.recommendation.quality;
+                console.log('Auto-selected quality:', analysis.recommendation.reason);
+
+                // Log warnings if any
+                if (analysis.warnings && analysis.warnings.length > 0) {
+                  console.log('Quality warnings:', analysis.warnings);
+                }
+              }
+            } else {
+              // Fallback to simple best quality selection
+              const manifestData = await ManifestParser.parseManifest(streamData.url, streamData.type);
+              if (manifestData && manifestData.qualities && manifestData.qualities.length > 0) {
+                const sorted = manifestData.qualities.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0));
+                selectedQuality = sorted[0];
+              }
             }
           } catch (e) {
-            console.log('Could not parse manifest for quality selection:', e);
+            console.log('Could not analyze quality for selection:', e);
           }
         }
 
@@ -826,6 +841,117 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       try {
         await AnalyticsEngine.resetAnalytics();
         sendResponse({ success: true });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  // ========== QUALITY ANALYSIS HANDLERS ==========
+
+  if (request.action === 'analyzeStreamQuality') {
+    (async () => {
+      try {
+        const { streamData } = request;
+        const analysis = await QualityAnalyzer.analyzeStream(streamData);
+        sendResponse(analysis);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getQualityRecommendation') {
+    (async () => {
+      try {
+        const { streamData } = request;
+        const analysis = await QualityAnalyzer.analyzeStream(streamData);
+
+        if (analysis.success && analysis.recommendation) {
+          sendResponse({
+            success: true,
+            recommendation: analysis.recommendation,
+            warnings: analysis.warnings
+          });
+        } else {
+          sendResponse({ success: false, error: 'No recommendation available' });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'compareQualities') {
+    try {
+      const { quality1, quality2 } = request;
+      const comparison = QualityAnalyzer.compareQualities(quality1, quality2);
+      sendResponse({ success: true, comparison: comparison });
+    } catch (error) {
+      sendResponse({ success: false, error: error.message });
+    }
+  }
+
+  if (request.action === 'getConnectionSpeed') {
+    (async () => {
+      try {
+        const speed = await QualityAnalyzer.getConnectionSpeed();
+        sendResponse({ success: true, speed: speed });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'setConnectionSpeed') {
+    (async () => {
+      try {
+        const { speedMbps } = request;
+        const speed = await QualityAnalyzer.setConnectionSpeed(speedMbps);
+        sendResponse({ success: true, speed: speed });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'getQualityByCriteria') {
+    (async () => {
+      try {
+        const { streamData, criteria } = request;
+        const analysis = await QualityAnalyzer.analyzeStream(streamData);
+
+        if (analysis.success) {
+          const quality = QualityAnalyzer.getQualityByCriteria(analysis.qualities, criteria);
+          sendResponse({ success: true, quality: quality });
+        } else {
+          sendResponse({ success: false, error: 'Failed to analyze stream' });
+        }
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'formatQualityAnalysis') {
+    (async () => {
+      try {
+        const { streamData } = request;
+        const analysis = await QualityAnalyzer.analyzeStream(streamData);
+        const formatted = QualityAnalyzer.formatAnalysisForDisplay(analysis);
+        sendResponse({ success: true, formatted: formatted });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
