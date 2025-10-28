@@ -176,6 +176,17 @@ browser.webRequest.onBeforeRequest.addListener(
           streamData.pageUrl = tab.url;
           streamData.pageTitle = tab.title;
 
+          // Extract metadata if available
+          try {
+            if (typeof MetadataExtractor !== 'undefined') {
+              const enriched = await MetadataExtractor.enrichStreamData(streamData, tabId);
+              // Merge enriched data
+              Object.assign(streamData, enriched);
+            }
+          } catch (metaError) {
+            console.log('Metadata extraction failed (non-critical):', metaError);
+          }
+
           // Save to persistent storage
           await StorageManager.saveStream(streamData);
 
@@ -706,6 +717,63 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       try {
         const result = await BatchController.clearCompletedBatches();
         sendResponse(result);
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  // ========== METADATA EXTRACTION HANDLERS ==========
+
+  if (request.action === 'extractMetadata') {
+    (async () => {
+      try {
+        const { tabId, streamUrl } = request;
+        const metadata = await MetadataExtractor.extractFromPage(tabId, streamUrl);
+        sendResponse({ success: true, metadata: metadata });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'enrichStreamData') {
+    (async () => {
+      try {
+        const { streamData, tabId } = request;
+        const enriched = await MetadataExtractor.enrichStreamData(streamData, tabId);
+        sendResponse({ success: true, streamData: enriched });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'enrichMultipleStreams') {
+    (async () => {
+      try {
+        const { streams, tabId } = request;
+        const enriched = await MetadataExtractor.enrichMultipleStreams(streams, tabId);
+        sendResponse({ success: true, streams: enriched });
+      } catch (error) {
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
+
+    return true;
+  }
+
+  if (request.action === 'clearMetadataCache') {
+    (async () => {
+      try {
+        await MetadataExtractor.clearCache();
+        sendResponse({ success: true });
       } catch (error) {
         sendResponse({ success: false, error: error.message });
       }
