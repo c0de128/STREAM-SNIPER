@@ -409,7 +409,7 @@ async function loadCurrentStreams() {
 }
 
 // Display streams in current tab
-function displayStreams() {
+async function displayStreams() {
   const streamsList = document.getElementById('streams-list');
   const noStreamsMsg = document.getElementById('no-streams');
 
@@ -423,6 +423,20 @@ function displayStreams() {
 
     return matchesSearch && matchesFilter;
   });
+
+  // Apply best-stream-only filter if enabled
+  const settings = await browser.storage.local.get('settings');
+  if (settings.settings?.showBestStreamOnly && filtered.length > 0) {
+    // Show loading indicator
+    streamsList.innerHTML = '<div class="message">Analyzing streams for duplicates...</div>';
+
+    try {
+      filtered = await filterDuplicates(filtered);
+    } catch (error) {
+      console.error('Error filtering duplicates:', error);
+      // Continue with unfiltered streams on error
+    }
+  }
 
   if (filtered.length === 0) {
     noStreamsMsg.style.display = 'block';

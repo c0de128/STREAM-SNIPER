@@ -1,256 +1,313 @@
-# Adaptive Stream Detector
+# Stream Sniper
 
-A powerful Firefox extension that detects adaptive streaming URLs on web pages and provides comprehensive tools for managing, analyzing, and exporting them.
+**A powerful Firefox browser extension for detecting, analyzing, and managing streaming media URLs.**
 
-## Supported Formats
+Stream Sniper automatically detects adaptive streaming protocols (HLS M3U8, MPEG-DASH MPD, Microsoft Smooth Streaming) on any webpage, providing advanced features for recording, downloading, quality analysis, and batch management.
 
-- **M3U8** - HLS (HTTP Live Streaming)
-- **M3U** - M3U playlists
-- **MPD** - MPEG-DASH manifests
-- **ISM/ISMC** - Microsoft Smooth Streaming
+---
 
 ## Features
 
-### Core Functionality
-- **Automatic Detection** - Monitors network requests and automatically detects streaming URLs
-- **Badge Counter** - Shows the number of detected streams on the extension icon
-- **Persistent History** - Saves all detected streams across browser sessions (up to 500 streams)
-- **Real-time Notifications** - Optional toast notifications when new streams are detected
+### Core Capabilities
+- **Automatic Stream Detection** - Monitors all network requests and detects streaming URLs in real-time
+- **Multi-Protocol Support** - HLS (M3U8/M3U), MPEG-DASH (MPD), Microsoft Smooth Streaming (ISM/ISMC)
+- **Real-time Badge Counter** - Shows number of detected streams on current page
+- **Stream History** - Automatically saves up to 500 most recent streams with page context
+- **Favorites System** - Bookmark streams for quick access later
 
-### Tabbed Interface
-- **Current Tab** - Shows streams detected on the current page with advanced filtering
-- **History Tab** - Browse all previously detected streams with search functionality
-- **Statistics Tab** - View analytics on detected streams by format and domain
+### Advanced Features (Phase 2)
 
-### Stream Management
+#### Live Stream Recorder
+- Record live streams with HLS segment capture
+- Pause/resume recording capability
+- Automatic file splitting for long recordings
+- Real-time duration and size tracking
+- Export recordings in standard formats
 
-#### Stream Type Badges
-Each stream is color-coded by type:
-- **M3U8** (Green) - HLS streams
-- **M3U** (Light Blue) - M3U playlists
-- **MPD** (Orange) - MPEG-DASH streams
-- **ISM/ISMC** (Red) - Smooth Streaming
+#### Batch Download Manager
+- Select multiple streams for batch download
+- Priority queue management (Normal/Low/High/Urgent)
+- Concurrent download control
+- Progress tracking with bandwidth monitoring
+- Pause/resume/retry failed downloads
+- Download history with completion status
 
-#### Quality Detection
-- Automatically fetches and parses manifest files
-- Displays available quality variants (resolution, bitrate, framerate)
-- Shows codec information
-- Click "Details" button to view quality breakdown
+#### Metadata Extraction
+- Automatic title and description extraction
+- Thumbnail display in stream list
+- Category detection (Movies, TV Shows, Sports, etc.)
+- Duration estimation
+- Enhanced stream information
 
-#### Stream Validation
-- Test if streams are accessible with the "Test" button
-- Shows HTTP status codes
-- Visual indicators for active/inactive streams
+#### Advanced Analytics Dashboard
+- Real-time statistics and metrics
+- Download/recording performance tracking
+- Category breakdown with visual charts
+- Quality distribution analysis
+- Time-based activity trends
+- Domain-level analytics
 
-### Player Integration
-Copy streams in various formats ready for your favorite tools:
-- **Plain URL** - Direct copy of stream URL
-- **VLC** - `vlc "url"` command
-- **mpv** - `mpv "url"` command
-- **ffmpeg** - `ffmpeg -i "url" -c copy output.mp4`
-- **youtube-dl** - `youtube-dl "url"`
-- **yt-dlp** - `yt-dlp "url"`
+#### Smart Quality Selector
+- Analyzes all available quality variants
+- Recommends optimal quality based on connection speed
+- Displays bandwidth, resolution, codecs, compatibility
+- Estimated file size for each quality
+- Warning system for quality issues
+- One-click quality selection for downloads
 
-Simply click the dropdown arrow on the Copy button and select your preferred format.
+### User Interface Features (Phase 3)
+- **7-Tab Interface**: Current, Downloads, Recordings, Favorites, History, Statistics, About
+- **Dark Mode Support** - Toggle between light and dark themes
+- **Search & Filter** - Real-time search across all streams, filter by type
+- **Batch Selection** - Checkboxes for multi-stream operations
+- **Metadata Display** - Rich thumbnails, titles, categories in stream list
+- **Visual Analytics** - Bar charts, timelines, progress indicators
+- **Quality Modal** - Interactive quality selector with recommendations
 
-### Search & Filter
-- **Search** - Filter streams by URL, domain, or page title
-- **Type Filter** - Show only specific stream formats (HLS, DASH, etc.)
-- **Real-time Filtering** - Results update as you type
-
-### Export & Batch Operations
-- **Copy All URLs** - Copy all detected streams at once (one per line)
-- **Export to JSON** - Export complete history with metadata (timestamps, domains, page URLs)
-- **Export to TXT** - Human-readable text format
-- **Clear Functions** - Clear current session or entire history
-
-### Statistics Dashboard
-Track your stream detection activity:
-- **Total Streams** - All-time detection count
-- **Current Session** - Streams detected since browser started
-- **By Format** - Breakdown of streams by type (M3U8, MPD, etc.)
-- **Top Domains** - Most frequent domains with stream count
+---
 
 ## Installation
 
-### Temporary Installation (for testing)
+### From Source (Temporary Development Install)
 
-1. Open Firefox and navigate to `about:debugging`
-2. Click "This Firefox" in the left sidebar
-3. Click "Load Temporary Add-on"
-4. Navigate to the extension folder and select the `manifest.json` file
-5. The extension is now installed and will appear in your toolbar
+1. **Download/Clone Repository**
+   ```bash
+   git clone https://github.com/yourusername/stream-sniper.git
+   cd stream-sniper
+   ```
 
-### Permanent Installation
+2. **Load in Firefox**
+   - Open Firefox and navigate to `about:debugging`
+   - Click "This Firefox" in the sidebar
+   - Click "Load Temporary Add-on"
+   - Navigate to the extension directory and select `manifest.json`
 
-To install permanently:
-1. Create a Firefox account at https://addons.mozilla.org
-2. Package the extension as a .zip file
-3. Submit it to Mozilla for review and signing
-4. Once signed, install the .xpi file
+3. **Extension Loads**
+   - Extension persists until Firefox restart
+   - Icon appears in toolbar
+   - Badge shows stream count when streams detected
 
-### Creating Extension Package
+### From Firefox Add-ons Store
+*Coming soon - Extension will be submitted to AMO (addons.mozilla.org)*
 
-```bash
-cd M3U8
-zip -r adaptive-stream-detector.zip manifest.json background.js popup.html popup.js popup.css storage-manager.js manifest-parser.js options.html options.js icon.png
-```
+---
 
 ## Usage
 
-### Basic Workflow
+### Basic Usage
 
-1. Navigate to any webpage that loads streaming content
-2. The extension badge will show the count of detected streams
-3. Click the extension icon to open the popup
-4. Browse detected streams in the Current tab
-5. Click "Copy ▾" to copy URL or generate player commands
-6. Click "Test" to validate if stream is active
-7. Click "Details" to view quality information
-8. Use "Copy All" or "Export" for batch operations
+1. **Navigate to a streaming website** (YouTube, Twitch, Netflix, etc.)
+2. **Click the Stream Sniper icon** in the toolbar
+3. **View detected streams** in the Current tab
+4. **Click action buttons** to interact with streams:
+   - **Test** - Verify stream accessibility
+   - **Details** - Parse manifest and view quality variants
+   - **Copy** - Copy URL to clipboard
+   - **Download** - Download stream with external tool
+   - **Record** - Start live recording
+   - **Quality** - Select specific quality for download
+   - **Favorite** - Save to favorites list
 
-### Search & Filter
+### Advanced Features
 
-- Use the search box to filter by URL or domain
-- Select format from dropdown to show only specific types
-- Search works across Current and History tabs
+#### Recording a Live Stream
+1. Detect stream on Current tab
+2. Click **⏺ Record** button
+3. Switch to **Recordings** tab to monitor progress
+4. Use **Pause/Resume** buttons during recording
+5. Click **Stop** when finished
+6. Recording saved with metadata
 
-### Viewing History
+#### Batch Downloads
+1. Enable batch selection mode (appears when streams detected)
+2. Check multiple streams in the list
+3. Select priority level from dropdown (Normal/Low/High/Urgent)
+4. Click **Start Batch Download**
+5. Switch to **Downloads** tab to monitor progress
+6. Downloads process in priority order with concurrency control
 
-1. Click the "History" tab
-2. Browse all previously detected streams
-3. Use search to find specific streams
-4. Click "Clear History" to reset
+#### Quality Selection
+1. Find M3U8 or MPD stream
+2. Click **🎞️ Quality** button
+3. View connection speed and recommendations
+4. Review warnings (if any)
+5. Click desired quality card to start download
+6. Download begins with selected quality variant
 
-### Statistics
+#### Analytics Dashboard
+1. Switch to **Statistics** tab
+2. View overview cards (Total Streams, Downloads, Recordings, Data Transferred)
+3. Explore download/recording metrics
+4. Check category breakdown with visual bars
+5. Review quality distribution chart
+6. Browse activity timeline
+7. Click **Refresh Analytics** to update data
 
-1. Click the "Statistics" tab
-2. View total streams and session count
-3. See breakdown by format and top domains
-4. Click "Reset Statistics" to start fresh
+---
 
-### Settings
+## Keyboard Shortcuts
 
-1. Click the extension icon
-2. Right-click and select "Manage Extension" or go to `about:addons`
-3. Click on "Adaptive Stream Detector"
-4. Click "Preferences" tab
+| Shortcut | Action |
+|----------|--------|
+| `Alt+Shift+S` | Open Stream Sniper popup |
+| `Alt+Shift+D` | Toggle stream detection on/off |
+| `Alt+C` | Copy selected stream URL to clipboard |
+| `Alt+D` | Download selected stream |
+| `Alt+V` | Validate selected stream |
+| `Esc` | Close quality selector modal |
 
-Available settings:
-- **Enable notifications** - Show toast when streams detected
-- **Auto-validate streams** - Automatically test stream accessibility
-- **Save to history** - Enable/disable persistent storage
+*Keyboard shortcuts can be customized in Firefox settings: `about:addons` → Stream Sniper → Options*
 
-## File Structure
+---
 
-```
-M3U8/
-├── manifest.json          # Extension configuration
-├── background.js          # Background script for monitoring requests
-├── popup.html            # Popup interface HTML
-├── popup.js              # Popup functionality and UI logic
-├── popup.css             # Popup styling
-├── storage-manager.js    # Persistent storage management
-├── manifest-parser.js    # M3U8/MPD manifest parsing
-├── options.html          # Settings page HTML
-├── options.js            # Settings page logic
-├── icon.png             # Extension icon (48x48)
-└── README.md            # This file
-```
+## Architecture
 
-## Icon Note
+### Three-Tier Design
 
-You'll need to add an `icon.png` file (48x48 pixels) to the extension folder. You can create a simple icon or use any 48x48 PNG image as a placeholder.
+**Background Script** (`background.js`)
+- Monitors all network requests via WebRequest API
+- Detects streaming URLs using pattern matching
+- Manages session storage per tab
+- Coordinates message passing between components
+- Handles all backend processing
+
+**Backend Modules** (Phase 2)
+- `stream-recorder.js` - Live recording with segment capture
+- `download-manager.js` - Multi-stream download queue
+- `batch-controller.js` - Batch operation coordinator
+- `metadata-extractor.js` - Content metadata extraction
+- `analytics-engine.js` - Statistics and insights
+- `quality-analyzer.js` - Stream quality analysis
+
+**UI Layer** (Popup)
+- `popup.html` - 7-tab interface structure
+- `popup.css` - Theming, animations, responsive design
+- `popup.js` - UI logic, event handling, backend integration
+
+**Storage Layer**
+- `storage-manager.js` - Persistent data management
+- Browser Storage API for history, favorites, settings
+- IndexedDB for large datasets (analytics, recordings)
+
+---
+
+## Supported Streaming Protocols
+
+### HLS (HTTP Live Streaming)
+- `.m3u8` and `.m3u` files
+- Master playlists with quality variants
+- Simple playlists (single quality)
+- `#EXT-X-STREAM-INF` tag parsing
+- Bandwidth, resolution, framerate, codecs extraction
+
+### MPEG-DASH (Dynamic Adaptive Streaming)
+- `.mpd` files (Media Presentation Description)
+- XML-based manifest parsing
+- `<Representation>` quality variants
+- Bandwidth and resolution detection
+
+### Microsoft Smooth Streaming
+- `.ism` and `.ismc` manifest files
+- Detection supported (parsing not yet implemented)
+
+---
 
 ## Technical Details
 
-### Architecture
+### Browser Compatibility
+- **Firefox**: Fully supported (Manifest V2)
+- **Chrome/Edge**: Not yet supported (requires Manifest V3 port)
 
-The extension uses a three-tier architecture:
-1. **Background Script** - Monitors network requests via webRequest API
-2. **Storage Layer** - Manages persistent data using browser.storage.local
-3. **UI Layer** - Tabbed popup interface for user interaction
+### Permissions Required
+- `webRequest` - Monitor network traffic for stream detection
+- `<all_urls>` - Access all URLs for detection
+- `storage` - Save history, favorites, settings
+- `notifications` - Display status notifications
+- `tabs` - Access page titles and URLs
+- `downloads` - Manage stream downloads
+- `nativeMessaging` - Communicate with external tools (yt-dlp, ffmpeg)
 
-### Manifest Parsing
+### Storage Limits
+- **History**: 500 most recent streams (auto-cleanup)
+- **Favorites**: Unlimited
+- **Statistics**: Persistent (manual reset)
+- **Session Count**: Resets on browser restart
 
-The extension can parse streaming manifests to extract quality information:
+### External Tool Integration
+Stream Sniper generates command-line commands for external tools:
+- **VLC** - Direct playback
+- **mpv** - Media player with advanced features
+- **ffmpeg** - Stream processing and conversion
+- **youtube-dl** / **yt-dlp** - Stream downloading
 
-- **M3U8 (HLS)** - Parses #EXT-X-STREAM-INF tags to extract bandwidth, resolution, framerate, and codecs
-- **MPD (DASH)** - Parses XML Representation elements for quality variants
-- **Automatic** - Fetches manifests automatically when "Details" is clicked
+---
 
-### Storage
+## Privacy & Security
 
-Data is stored using `browser.storage.local` with the following structure:
+- **No Data Collection** - All processing happens locally
+- **No External Servers** - Extension does not send data anywhere
+- **No Tracking** - No analytics or telemetry
+- **Open Source** - Full source code available for audit
+- **Permissions Explained** - All permissions used only for stated functionality
 
-- **streamHistory** - Array of detected streams (max 500)
-- **streamStats** - Statistics object with total, byType, byDomain
-- **sessionCount** - Counter for current browser session
-- **settings** - User preferences
-
-### Permissions
-
-- `webRequest` - Monitor network requests for streaming manifests
-- `<all_urls>` - Access to detect streams on any website
-- `storage` - Store history and statistics persistently
-- `notifications` - Show toast notifications
-- `tabs` - Access tab information for page URLs
-
-## Browser Compatibility
-
-This extension is designed for Firefox and uses the `browser` API namespace. For Chrome/Edge compatibility, you would need to:
-1. Use manifest v3 format
-2. Replace `browser` API calls with `chrome` API
-3. Adjust webRequest implementation for manifest v3
-
-## Privacy
-
-- All data is stored locally in your browser
-- No data is transmitted to external servers
-- History is limited to 500 most recent streams
-- You can clear history and statistics at any time from the extension
-
-## Troubleshooting
-
-### Streams Not Detected
-- Ensure the page has fully loaded
-- Check if the site uses supported formats (M3U8, MPD, ISM)
-- Try refreshing the page
-- Check browser console for errors
-
-### Quality Information Not Showing
-- Ensure manifest URL is accessible
-- Check for CORS restrictions on manifest files
-- Some simple playlists don't have quality variants
-
-### Notifications Not Showing
-- Check Firefox notification settings
-- Enable notifications in extension settings
-- Ensure Firefox has permission to show notifications
+---
 
 ## Contributing
 
-Contributions are welcome! Areas for improvement:
-- Support for additional streaming formats
-- Enhanced quality detection algorithms
-- Additional export formats
-- UI/UX improvements
-- Performance optimizations
+We welcome contributions! Please see [DEVELOPER.md](DEVELOPER.md) for:
+- Development setup
+- Code architecture
+- Coding standards
+- Pull request process
+- Testing guidelines
 
-## License
-
-Free to use and modify for personal purposes.
+---
 
 ## Changelog
 
-### Version 1.0
-- Initial release with full feature set
-- Support for M3U8, M3U, MPD, ISM/ISMC formats
-- Tabbed interface with Current, History, and Statistics
-- Stream type badges and quality detection
-- Player command generation
-- Search and filtering
-- Export functionality
-- Persistent storage
-- Notifications
-- Stream validation
+See [CHANGELOG.md](CHANGELOG.md) for version history and feature releases.
+
+---
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+---
+
+## Support
+
+- **Issues**: Report bugs at [GitHub Issues](https://github.com/yourusername/stream-sniper/issues)
+- **Documentation**: See [USER_GUIDE.md](USER_GUIDE.md) for detailed instructions
+- **Developer Docs**: See [DEVELOPER.md](DEVELOPER.md) for technical details
+
+---
+
+## Roadmap
+
+### Completed
+- ✅ Phase 1: Core Detection & Basic UI
+- ✅ Phase 2: Advanced Backend Features
+- ✅ Phase 3: UI & Polish
+- ✅ Phase 5: Documentation
+
+### Planned
+- ⏳ Phase 4: Testing & Refinement
+- 📋 Phase 6: Packaging & Deployment
+- 📋 Phase 7: Advanced Features (playlist export, cloud sync, scheduled recordings)
+
+---
+
+## Acknowledgments
+
+Built with:
+- Firefox WebExtensions API
+- Native Messaging Protocol
+- HLS.js parsing concepts
+- MPEG-DASH XML standards
+
+**Developed with assistance from Claude Code**
+
+---
+
+**Stream Sniper** - Detect. Analyze. Capture.

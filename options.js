@@ -72,7 +72,8 @@ async function loadSettings() {
     autoValidate: false,
     saveToHistory: true,
     autoPreview: true,
-    previewQuality: 'medium'
+    previewQuality: 'medium',
+    showBestStreamOnly: false
   };
 
   // Download settings
@@ -94,6 +95,7 @@ async function loadSettings() {
   document.getElementById('notifications-enabled').checked = settings.notifications;
   document.getElementById('auto-validate').checked = settings.autoValidate;
   document.getElementById('save-to-history').checked = settings.saveToHistory;
+  document.getElementById('show-best-stream-only').checked = settings.showBestStreamOnly || false;
   document.getElementById('auto-preview').checked = settings.autoPreview;
   document.getElementById('preview-quality').value = settings.previewQuality || 'medium';
 
@@ -147,6 +149,7 @@ async function saveSettings() {
     notifications: document.getElementById('notifications-enabled').checked,
     autoValidate: document.getElementById('auto-validate').checked,
     saveToHistory: document.getElementById('save-to-history').checked,
+    showBestStreamOnly: document.getElementById('show-best-stream-only').checked,
     autoPreview: document.getElementById('auto-preview').checked,
     previewQuality: document.getElementById('preview-quality').value
   };
