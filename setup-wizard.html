@@ -559,6 +559,20 @@
         Browser extensions are sandboxed and can't directly execute system commands. A native messaging host acts as a bridge between the extension and yt-dlp on your system.
       </div>
 
+      <div class="info-box" style="border-left: 4px solid #5cb85c;">
+        <strong>Quick install (recommended)</strong><br>
+        Download <code>stream-sniper-native-host-v2.0.zip</code> from the builds folder, extract it, and run the installer from that folder. It copies the bridge, writes the manifests, registers them for Firefox, Chrome, Edge and Brave, and checks for yt-dlp, FFmpeg and VLC.
+        <div class="code-block" style="margin-top: 10px;">
+          <code id="quick-install-win">powershell -ExecutionPolicy Bypass -File .\install-native-host.ps1</code>
+          <button class="copy-btn" data-copy="quick-install-win">Copy</button>
+        </div>
+        <div class="code-block">
+          <code id="quick-install-unix">bash install-native-host.sh</code>
+          <button class="copy-btn" data-copy="quick-install-unix">Copy</button>
+        </div>
+        <small>Firefox works immediately (the extension has a fixed ID). For Chrome, Edge or Brave add <code>-ChromeExtensionId &lt;id&gt;</code> (Windows) or <code>--chrome-id &lt;id&gt;</code> (macOS/Linux) with the ID shown on the browser's extensions page. The manual steps below do the same thing by hand.</small>
+      </div>
+
       <div class="platform-tabs">
         <button class="platform-tab active" data-platform="windows-host">Windows</button>
         <button class="platform-tab" data-platform="macos-host">macOS</button>

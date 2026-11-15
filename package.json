@@ -12,7 +12,7 @@
     "clean": "rm -rf builds",
     "watch": "nodemon --watch . --ext js,html,css,json --ignore builds/ --exec 'npm run build'",
     "lint": "eslint *.js",
-    "test": "echo \"No tests specified yet\" && exit 0",
+    "test": "node --test \"test/*.test.js\"",
     "package": "npm run clean && npm run build"
   },
   "repository": {

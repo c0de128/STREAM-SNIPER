@@ -3,37 +3,47 @@
   "name": "Stream Sniper",
   "version": "2.0",
   "description": "Stream Sniper - Detect, preview, download, and capture streaming URLs (HLS, MPEG-DASH, Smooth Streaming) with live playback",
-
   "icons": {
     "48": "icon.png",
     "96": "icon.png"
   },
-
   "permissions": [
     "webRequest",
+    "webRequestBlocking",
     "<all_urls>",
     "storage",
     "notifications",
     "tabs",
     "downloads",
-    "nativeMessaging"
+    "downloads.open",
+    "nativeMessaging",
+    "contextMenus"
   ],
-
   "background": {
-    "scripts": ["browser-polyfill.js", "error-handler.js", "manifest-parser.js", "download-manager.js", "stream-recorder.js", "batch-controller.js", "metadata-extractor.js", "analytics-engine.js", "quality-analyzer.js", "background.js"]
+    "scripts": [
+      "browser-polyfill.js",
+      "error-handler.js",
+      "storage-manager.js",
+      "manifest-parser.js",
+      "hls-downloader.js",
+      "download-manager.js",
+      "stream-recorder.js",
+      "batch-controller.js",
+      "metadata-extractor.js",
+      "analytics-engine.js",
+      "quality-analyzer.js",
+      "background.js"
+    ]
   },
-
   "browser_action": {
     "default_icon": "icon.png",
     "default_title": "Stream Sniper",
     "default_popup": "popup.html"
   },
-
   "options_ui": {
     "page": "options.html",
     "browser_style": true
   },
-
   "commands": {
     "_execute_browser_action": {
       "suggested_key": {
@@ -64,6 +74,18 @@
         "default": "Alt+V"
       },
       "description": "Validate selected stream"
+    },
+    "play-in-vlc": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Play the detected stream in VLC"
+    }
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "stream-sniper@c0de128.github.io",
+      "strict_min_version": "109.0"
     }
   }
 }

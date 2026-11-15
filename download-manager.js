@@ -124,7 +124,11 @@ class DownloadItem {
       'm3u': 'mp4',
       'mpd': 'mp4',
       'ism': 'mp4',
-      'ismc': 'mp4'
+      'ismc': 'mp4',
+      'webm': 'webm',
+      'mkv': 'mkv',
+      'flv': 'flv',
+      'audio': 'm4a'
     };
     return extensionMap[type] || 'mp4';
   }
@@ -418,12 +422,27 @@ class YtDlpDownloader {
       downloadItem.setState('downloading');
       downloadItem.method = 'ytdlp';
 
+      // Reproduce the page's request context so protected CDNs accept yt-dlp
+      const args = [];
+      const context = (typeof getStreamContext === 'function') ? getStreamContext(downloadItem.url) : null;
+      if (context) {
+        if (context.referer) args.push('--referer', context.referer);
+        if (context.userAgent) args.push('--user-agent', context.userAgent);
+        for (const [name, value] of Object.entries(context.headers || {})) {
+          args.push('--add-header', `${name}:${value}`);
+        }
+      }
+      const settingsResult = await browser.storage.local.get('downloadSettings');
+      const userArgs = (settingsResult.downloadSettings && settingsResult.downloadSettings.ytdlpArgs) || '';
+      if (userArgs.trim()) args.push(...userArgs.trim().split(/\s+/));
+
       // Build yt-dlp command
       const command = {
         type: 'download',
         url: downloadItem.url,
         output: downloadItem.filename,
-        format: downloadItem.quality ? downloadItem.quality.id : 'best',
+        format: downloadItem.quality ? (downloadItem.quality.id || 'best') : 'best',
+        args,
         downloadId: downloadItem.id
       };
 
@@ -520,10 +539,215 @@ class YtDlpDownloader {
   }
 }
 
+// ==================== IN-BROWSER HLS DOWNLOADER ====================
+// Downloads HLS playlists without yt-dlp: fetches every segment (with the extension's
+// referer/header rules applied), concatenates them and saves through the downloads API.
+// Runs directly where blob URLs exist (Firefox background page); on Chrome MV3 the work is
+// delegated to an offscreen document because service workers cannot create blob URLs.
+class HlsNativeDownloader {
+  constructor() {
+    this.jobs = new Map(); // downloadItem.id -> { controller, item, blobUrl }
+    this.setupOffscreenListener();
+  }
+
+  static isSupportedType(type) {
+    return type === 'm3u8' || type === 'm3u';
+  }
+
+  canRunLocally() {
+    return typeof HlsDownloader !== 'undefined' && HlsDownloader.canRunHere();
+  }
+
+  async download(downloadItem) {
+    downloadItem.setState('downloading');
+    downloadItem.method = 'hls';
+    downloadItem.startTime = Date.now();
+
+    const quality = downloadItem.quality
+      ? { resolution: downloadItem.quality.resolution, bandwidth: downloadItem.quality.bandwidth, url: downloadItem.quality.url }
+      : 'best';
+
+    if (this.canRunLocally()) {
+      return this.downloadLocally(downloadItem, quality);
+    }
+    if (browser.offscreen) {
+      return this.downloadViaOffscreen(downloadItem, quality);
+    }
+    downloadItem.setState('failed', 'In-browser HLS download is not supported in this environment');
+    return { success: false, error: downloadItem.error };
+  }
+
+  applyProgress(downloadItem, p) {
+    downloadItem.progress = p.live ? 0 : (p.percent || 0);
+    downloadItem.bytesReceived = p.bytes || 0;
+    downloadItem.totalBytes = 0;
+    downloadItem.speed = p.speed || 0;
+    downloadItem.segmentsDone = p.segmentsDone;
+    downloadItem.segmentsTotal = p.segmentsTotal;
+    downloadItem.live = !!p.live;
+    if (!p.live && p.speed > 0 && p.segmentsTotal > 0 && p.segmentsDone > 0) {
+      const perSegment = (Date.now() - downloadItem.startTime) / 1000 / p.segmentsDone;
+      downloadItem.eta = Math.round(perSegment * (p.segmentsTotal - p.segmentsDone));
+    }
+    DownloadManager.nativeDownloader.notifyProgress(downloadItem);
+  }
+
+  finalFilename(downloadItem, container) {
+    const base = (downloadItem.filename || 'stream.mp4').replace(/\.[a-z0-9]+$/i, '');
+    return `${base}.${container}`;
+  }
+
+  async saveBlobUrl(downloadItem, blobUrl, container) {
+    const filename = this.finalFilename(downloadItem, container);
+    downloadItem.filename = filename;
+    const downloadId = await browser.downloads.download({
+      url: blobUrl,
+      filename,
+      saveAs: false,
+      conflictAction: 'uniquify'
+    });
+    downloadItem.downloadId = downloadId;
+
+    // Wait for the browser to finish writing the file before revoking the blob
+    await new Promise((resolve) => {
+      const timer = setTimeout(done, 120000);
+      function done() {
+        clearTimeout(timer);
+        browser.downloads.onChanged.removeListener(listener);
+        resolve();
+      }
+      function listener(delta) {
+        if (delta.id === downloadId && delta.state && delta.state.current !== 'in_progress') done();
+      }
+      browser.downloads.onChanged.addListener(listener);
+      browser.downloads.search({ id: downloadId }).then(items => {
+        if (items && items[0] && items[0].state !== 'in_progress') done();
+      }).catch(() => {});
+    });
+  }
+
+  async downloadLocally(downloadItem, quality) {
+    const controller = new AbortController();
+    this.jobs.set(downloadItem.id, { controller, item: downloadItem });
+
+    try {
+      const result = await HlsDownloader.download({
+        url: downloadItem.url,
+        quality,
+        signal: controller.signal,
+        onProgress: (p) => this.applyProgress(downloadItem, p)
+      });
+
+      const blobUrl = URL.createObjectURL(result.blob);
+      try {
+        await this.saveBlobUrl(downloadItem, blobUrl, result.container);
+      } finally {
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      }
+
+      downloadItem.totalBytes = result.bytes;
+      downloadItem.bytesReceived = result.bytes;
+      downloadItem.setState('completed');
+      downloadItem.progress = 100;
+      DownloadManager.nativeDownloader.notifyCompletion(downloadItem);
+      await DownloadManager.saveToHistory(downloadItem);
+      return { success: true, downloadId: downloadItem.id };
+    } catch (error) {
+      const cancelled = error.name === 'AbortError';
+      downloadItem.setState(cancelled ? 'cancelled' : 'failed', cancelled ? null : error.message);
+      if (!cancelled) DownloadManager.nativeDownloader.notifyFailure(downloadItem);
+      return { success: false, error: error.message };
+    } finally {
+      this.jobs.delete(downloadItem.id);
+      await DownloadManager.saveQueue();
+    }
+  }
+
+  async ensureOffscreen() {
+    if (!browser.offscreen) throw new Error('Offscreen API unavailable');
+    const hasDoc = browser.offscreen.hasDocument ? await browser.offscreen.hasDocument() : false;
+    if (hasDoc) return;
+    try {
+      await browser.offscreen.createDocument({
+        url: 'offscreen.html',
+        reasons: ['BLOBS'],
+        justification: 'Assemble HLS stream segments into a downloadable file'
+      });
+    } catch (err) {
+      if (!String(err.message || err).includes('single offscreen')) throw err;
+    }
+  }
+
+  async downloadViaOffscreen(downloadItem, quality) {
+    await this.ensureOffscreen();
+    this.jobs.set(downloadItem.id, { item: downloadItem, offscreen: true });
+    await browser.runtime.sendMessage({
+      target: 'offscreen',
+      action: 'hlsDownload',
+      jobId: downloadItem.id,
+      url: downloadItem.url,
+      quality
+    });
+    return { success: true, downloadId: downloadItem.id };
+  }
+
+  setupOffscreenListener() {
+    if (!browser.runtime || !browser.runtime.onMessage) return;
+    browser.runtime.onMessage.addListener((message) => {
+      if (!message || message.action !== 'offscreenHlsEvent') return;
+      const job = this.jobs.get(message.jobId);
+      if (!job) return;
+      const item = job.item;
+
+      if (message.event === 'progress') {
+        this.applyProgress(item, message.progress);
+      } else if (message.event === 'complete') {
+        (async () => {
+          try {
+            await this.saveBlobUrl(item, message.blobUrl, message.container);
+            item.totalBytes = message.bytes;
+            item.bytesReceived = message.bytes;
+            item.setState('completed');
+            item.progress = 100;
+            DownloadManager.nativeDownloader.notifyCompletion(item);
+            await DownloadManager.saveToHistory(item);
+          } catch (error) {
+            item.setState('failed', error.message);
+            DownloadManager.nativeDownloader.notifyFailure(item);
+          } finally {
+            browser.runtime.sendMessage({ target: 'offscreen', action: 'revokeBlobUrl', blobUrl: message.blobUrl }).catch(() => {});
+            this.jobs.delete(item.id);
+            DownloadManager.saveQueue();
+          }
+        })();
+      } else if (message.event === 'error') {
+        const cancelled = message.error === 'Cancelled';
+        item.setState(cancelled ? 'cancelled' : 'failed', cancelled ? null : message.error);
+        if (!cancelled) DownloadManager.nativeDownloader.notifyFailure(item);
+        this.jobs.delete(item.id);
+        DownloadManager.saveQueue();
+      }
+    });
+  }
+
+  async cancel(downloadItem) {
+    const job = this.jobs.get(downloadItem.id);
+    if (!job) return { success: false, error: 'Download not active' };
+    if (job.controller) {
+      job.controller.abort();
+    } else if (job.offscreen) {
+      await browser.runtime.sendMessage({ target: 'offscreen', action: 'hlsCancel', jobId: downloadItem.id }).catch(() => {});
+    }
+    downloadItem.setState('cancelled');
+    return { success: true };
+  }
+}
+
 // ==================== DOWNLOAD MANAGER (MAIN) ====================
 const DownloadManager = {
   nativeDownloader: new NativeDownloader(),
   ytdlpDownloader: new YtDlpDownloader(),
+  hlsDownloader: new HlsNativeDownloader(),
   downloadQueue: [],
 
   // Initialize download manager
@@ -552,13 +776,26 @@ const DownloadManager = {
 
     // Determine download method
     if (method === 'auto') {
-      // Use yt-dlp for complex streams, native for simple ones
-      method = (streamData.type === 'mpd' || quality) ? 'ytdlp' : 'native';
+      const isHls = HlsNativeDownloader.isSupportedType(streamData.type);
+      const isSegmented = isHls || streamData.type === 'mpd' || streamData.type === 'ism' || streamData.type === 'ismc';
 
-      // Fall back to native if yt-dlp not available
-      if (method === 'ytdlp' && !this.ytdlpDownloader.available) {
+      if (isSegmented || quality) {
+        // Segmented formats need assembly: yt-dlp when installed, otherwise the in-browser HLS downloader
+        if (this.ytdlpDownloader.available) {
+          method = 'ytdlp';
+        } else if (isHls) {
+          method = 'hls';
+        } else {
+          method = 'native'; // DASH/Smooth without yt-dlp: will only save the manifest
+        }
+      } else {
+        // Direct files (mp4, webm, ...) download fine natively
         method = 'native';
       }
+    }
+
+    if (method === 'ytdlp' && !this.ytdlpDownloader.available) {
+      method = HlsNativeDownloader.isSupportedType(streamData.type) ? 'hls' : 'native';
     }
 
     downloadItem.method = method;
@@ -577,7 +814,11 @@ const DownloadManager = {
   async startDownload(downloadItem) {
     if (downloadItem.method === 'ytdlp' && this.ytdlpDownloader.available) {
       return await this.ytdlpDownloader.download(downloadItem);
+    } else if (downloadItem.method === 'hls') {
+      return await this.hlsDownloader.download(downloadItem);
     } else {
+      // Wait for async filename generation (first tick after construction)
+      if (!downloadItem.filename) await new Promise(r => setTimeout(r, 50));
       return await this.nativeDownloader.download(downloadItem);
     }
   },
@@ -611,6 +852,12 @@ const DownloadManager = {
   async cancelDownload(downloadId) {
     const downloadItem = this.findDownload(downloadId);
     if (!downloadItem) return { success: false, error: 'Download not found' };
+
+    if (downloadItem.method === 'hls') {
+      const result = await this.hlsDownloader.cancel(downloadItem);
+      await this.saveQueue();
+      return result;
+    }
 
     let result;
     if (downloadItem.method === 'native') {

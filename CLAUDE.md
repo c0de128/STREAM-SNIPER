@@ -57,7 +57,14 @@ npm run clean
 
 # Watch mode (auto-rebuild on changes)
 npm run watch
+
+# Run the test suite (Node built-in runner, no browser needed)
+npm test
 ```
+
+**Tests (`test/`):** `helpers.js` loads `background.js`, `storage-manager.js` and `hls-downloader.js` into a VM with a mocked `browser` API (Firefox or Chrome flavour). `detection.test.js` covers URL/content-type/direct-video/segment detection, header capture and rewriting (both webRequest and declarativeNetRequest paths), session-state persistence and the VLC helpers. `hls-downloader.test.js` covers playlist parsing, variant selection, concurrent assembly, AES-128 and byte ranges. `storage-build.test.js` checks history/settings helpers and build consistency (manifest script list vs `importScripts`, every HTML reference shipped, permissions present). Run `npm test` after any change to these files.
+
+**Build invariants:** `build.js` fails if `manifest.json` `background.scripts` and the `BACKGROUND_SCRIPTS` list in `background.js` differ, or if a background module is missing from `COMMON_FILES`. If Firefox has the zip loaded as a temporary add-on the file is locked and the build reports it; remove the add-on or load `manifest.json` unpacked instead.
 
 **Manual Build (build.js):**
 ```bash
@@ -84,14 +91,20 @@ node build.js chrome    # Chrome only
 1. **Background Layer** (`background.js`)
    - Monitors ALL network requests via `webRequest.onBeforeRequest` on `<all_urls>`
    - Pattern matches against `STREAM_FORMATS` array using regex
+   - Also detects by response Content-Type (`onHeadersReceived`): HLS/DASH/Smooth manifests on extensionless URLs, and direct video/audio files (`DIRECT_VIDEO_CONTENT_TYPES`, >1 MB) as types `mp4`/`webm`/`mkv`/`flv`/`audio`
+   - Segment-only detection: bursts of `.ts`/`.m4s` requests with no playlist trigger `probeForPlaylist()`, which tries common playlist names in the segment directory (`inferred: true`) or records an `hls-segments` entry
+   - Records the requesting frame (`frameUrl`) and keeps `streamReferers[host]`; captures the page's own request headers (`streamHeaders[host]`: cookie, authorization, user-agent, x-*) and replays Referer/Origin/captured headers on extension-initiated requests (Firefox: blocking `onBeforeSendHeaders`; Chrome: `declarativeNetRequest` session rules). `getStreamContext(url)` exposes this to the download manager, popup and VLC launcher
+   - Session state (`detectedStreams`, referers, headers) is mirrored to `storage.session` (`persistState()`/`restoreState()`) so the Chrome service worker survives being killed
+   - "Play in VLC": native host launch with referer/UA, falling back to an `.xspf` playlist download; also exposed as a context menu and the `play-in-vlc` command
    - Maintains in-memory session state: `detectedStreams` object keyed by `tabId`
    - Auto-validates streams on detection via HEAD request
    - Updates badge count immediately upon detection
    - Handles message passing from popup (20+ actions including stream, download, and settings operations)
-   - Integrates `download-manager.js` and `manifest-parser.js` via importScripts (MV3 compatibility)
+   - MV3: `importScripts(...BACKGROUND_SCRIPTS)` loads the same module list as `manifest.json` (verified by the build)
 
-2. **Download Layer** (`download-manager.js`)
-   - **Dual Download System:** Native browser API + yt-dlp integration
+2. **Download Layer** (`download-manager.js`, `hls-downloader.js`, `offscreen.html/js`)
+   - **Three download paths:** Native browser API (direct files), yt-dlp via native messaging (segmented formats, best quality), and the in-browser HLS downloader (`HlsNativeDownloader` → `HlsDownloader`) used for HLS when yt-dlp is not installed. It fetches segments with the extension's header rules, handles AES-128, fMP4 init maps, byte ranges and live playlists, and saves a `.ts`/`.mp4` blob through `downloads.download`. On Chrome MV3 the assembly runs in an offscreen document because service workers cannot create blob URLs
+   - yt-dlp downloads receive `--referer`, `--user-agent`, `--add-header` from `getStreamContext()` plus the user's extra args
    - **Queue Management:** State machine (queued → downloading → completed/failed/paused)
    - **DownloadItem Class:** Tracks URL, progress, speed, ETA, method, quality, filename
    - **NativeDownloader:** Uses `browser.downloads` API for simple streams
@@ -108,7 +121,10 @@ node build.js chrome    # Chrome only
    - Export formats: JSON (with metadata), TXT (human-readable)
    - Download settings: method preference, quality defaults, yt-dlp config
 
-4. **UI Layer** (`popup.js`, `popup.html`, `popup.css`)
+4. **UI Layer** (`popup-*.js`, `popup.html`, `popup.css`)
+   - The popup script is split by tab and loaded in order by `popup.html`: `popup-core.js` (state, init, events, keyboard, shared helpers), `popup-streams.js` (Current tab), `popup-history.js` (History + Favorites), `popup-stats.js`, `popup-downloads.js`, `popup-recordings.js`, `popup-batch.js`, `popup-quality.js`. They share one global scope; a function may be declared only once across the set (tested)
+   - Copy dropdown builds context-aware commands (URL + headers, VLC, mpv, ffmpeg, yt-dlp, curl) using `getStreamContext`
+   - History tab filters by text, domain, date range and type via `StorageManager.filterHistory`
    - Five-tab interface: Current, Downloads, History, Statistics, About
    - **Current Tab:** Stream detection with download buttons, preview, quality info
    - **Downloads Tab:** Real-time download queue with progress bars, pause/resume/cancel actions
@@ -202,7 +218,7 @@ node build.js chrome    # Chrome only
 - `streamHistory`: Array of stream objects, max 500 (oldest removed)
 - `streamStats`: `{ total: number, byType: {}, byDomain: {} }`
 - `sessionCount`: Integer (resets on browser restart via `runtime.onStartup`)
-- `settings`: `{ notifications: bool, autoValidate: bool, autoPreview: bool, previewQuality: 'low'|'medium'|'high' }`
+- `settings`: see `StorageManager.DEFAULT_SETTINGS` (notifications, autoValidate, saveToHistory, autoPreview, previewQuality, captureHeaders, detectDirectVideo, detectSegments, darkMode, showBestStreamOnly); always read through `StorageManager.getSettings()` which merges defaults
 - `detectionEnabled`: Boolean toggle for pausing detection
 
 **Duplicate Prevention:**
@@ -500,6 +516,9 @@ port.onMessage.addListener((message) => {
 **Linux:**
 - Script: `~/.local/share/StreamSniper/ytdlp-bridge.py`
 - Manifest: `~/.mozilla/native-messaging-hosts/` (Firefox)
+
+### One-command installer
+`install-native-host.ps1` (Windows) and `install-native-host.sh` (macOS/Linux) ship in the native-host zip. They copy the bridge, write both manifests, register Firefox/Chrome/Edge/Brave, and check for yt-dlp, FFmpeg and VLC. Firefox needs no ID because `manifest.json` sets a fixed `browser_specific_settings.gecko.id` (`stream-sniper@c0de128.github.io`); Chromium browsers take the ID via `-ChromeExtensionId` / `--chrome-id`.
 
 ### Setup Wizard
 The extension includes `setup-wizard.html` with step-by-step installation instructions:
