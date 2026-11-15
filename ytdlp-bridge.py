@@ -292,6 +292,67 @@ def update_manifest(extension_id):
             'error': f'Failed to update manifest: {str(e)}'
         }
 
+
+def find_vlc():
+    """Find the VLC executable on this system"""
+    for name in ['vlc', 'vlc.exe']:
+        path = shutil.which(name)
+        if path:
+            return path
+
+    candidates = []
+    if sys.platform.startswith('win'):
+        for env in ('ProgramFiles', 'ProgramFiles(x86)', 'ProgramW6432'):
+            base = os.environ.get(env)
+            if base:
+                candidates.append(os.path.join(base, 'VideoLAN', 'VLC', 'vlc.exe'))
+        local = os.environ.get('LOCALAPPDATA')
+        if local:
+            candidates.append(os.path.join(local, 'Programs', 'VideoLAN', 'VLC', 'vlc.exe'))
+    elif sys.platform == 'darwin':
+        candidates.append('/Applications/VLC.app/Contents/MacOS/VLC')
+        candidates.append(os.path.expanduser('~/Applications/VLC.app/Contents/MacOS/VLC'))
+    else:
+        candidates.extend(['/usr/bin/vlc', '/usr/local/bin/vlc', '/snap/bin/vlc', '/var/lib/flatpak/exports/bin/org.videolan.VLC'])
+
+    for path in candidates:
+        if os.path.isfile(path):
+            return path
+    return None
+
+def launch_vlc(url, referer='', user_agent=''):
+    """Start VLC detached from this process, playing the given stream"""
+    vlc_path = find_vlc()
+    if not vlc_path:
+        return {'type': 'error', 'error': 'VLC not found. Install VLC or add it to PATH.'}
+
+    if not url.lower().startswith(('http://', 'https://', 'rtmp://', 'rtsp://')):
+        return {'type': 'error', 'error': 'Refusing to open non-stream URL'}
+
+    args = [vlc_path, '--no-video-title-show', url]
+    # Item-specific options use a leading colon in VLC's command line
+    if referer:
+        args.append(':http-referrer=' + referer)
+    if user_agent:
+        args.append(':http-user-agent=' + user_agent)
+
+    try:
+        popen_kwargs = {
+            'stdin': subprocess.DEVNULL,
+            'stdout': subprocess.DEVNULL,
+            'stderr': subprocess.DEVNULL,
+        }
+        if sys.platform.startswith('win'):
+            DETACHED_PROCESS = 0x00000008
+            CREATE_NEW_PROCESS_GROUP = 0x00000200
+            popen_kwargs['creationflags'] = DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+        else:
+            popen_kwargs['start_new_session'] = True
+        subprocess.Popen(args, **popen_kwargs)
+        return {'type': 'vlcLaunched', 'path': vlc_path}
+    except Exception as e:
+        return {'type': 'error', 'error': f'Failed to start VLC: {str(e)}'}
+
 def handle_message(message):
     """Handle incoming message from extension"""
     msg_type = message.get('type', '')
@@ -329,6 +390,14 @@ def handle_message(message):
                 'type': 'error',
                 'error': 'Missing URL or output path'
             })
+
+    elif msg_type == 'playInVlc':
+        # Launch VLC with the stream URL (plus referer/user-agent for hotlink-protected CDNs)
+        url = message.get('url', '')
+        if url:
+            send_message(launch_vlc(url, message.get('referer', ''), message.get('userAgent', '')))
+        else:
+            send_message({'type': 'error', 'error': 'No URL provided'})
 
     elif msg_type == 'updateManifest':
         # Update native messaging manifest with extension ID

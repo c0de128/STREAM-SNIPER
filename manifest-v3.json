@@ -3,41 +3,39 @@
   "name": "Stream Sniper",
   "version": "2.0",
   "description": "Stream Sniper - Detect, preview, download, and capture streaming URLs (HLS, MPEG-DASH, Smooth Streaming) with live playback",
-
   "icons": {
     "48": "icon.png",
     "96": "icon.png"
   },
-
   "permissions": [
     "storage",
     "notifications",
     "tabs",
     "downloads",
+    "downloads.open",
     "nativeMessaging",
+    "webRequest",
     "declarativeNetRequest",
-    "declarativeNetRequestFeedback"
+    "declarativeNetRequestFeedback",
+    "scripting",
+    "offscreen",
+    "contextMenus"
   ],
-
   "host_permissions": [
     "<all_urls>"
   ],
-
   "background": {
     "service_worker": "background.js"
   },
-
   "action": {
     "default_icon": "icon.png",
     "default_title": "Stream Sniper",
     "default_popup": "popup.html"
   },
-
   "options_ui": {
     "page": "options.html",
     "open_in_tab": true
   },
-
   "web_accessible_resources": [
     {
       "resources": [
@@ -45,11 +43,41 @@
         "quality-selector.html",
         "setup-wizard.html"
       ],
-      "matches": ["<all_urls>"]
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
-
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
+  },
+  "commands": {
+    "_execute_action": {
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
+      "description": "Open Stream Sniper popup"
+    },
+    "toggle-detection": {
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
+      "description": "Toggle stream detection on/off"
+    },
+    "play-in-vlc": {
+      "suggested_key": {
+        "default": "Alt+Shift+V"
+      },
+      "description": "Play the detected stream in VLC"
+    },
+    "copy-url": {
+      "description": "Copy selected stream URL to clipboard"
+    },
+    "download-stream": {
+      "description": "Download selected stream"
+    },
+    "validate-stream": {
+      "description": "Validate selected stream"
+    }
   }
 }

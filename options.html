@@ -238,6 +238,40 @@
   </div>
 
   <div class="section">
+    <h2>Detection</h2>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="capture-headers" checked>
+        <span>Capture request headers for detected streams</span>
+      </label>
+      <div class="setting-description">
+        Remembers the Referer, cookies and auth headers the page used, so previews, downloads, yt-dlp and VLC can replay them on hotlink-protected CDNs. Stored only in memory for the session.
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="detect-direct-video" checked>
+        <span>Detect direct video files (MP4, WebM, MKV)</span>
+      </label>
+      <div class="setting-description">
+        Lists progressive video and audio files over 1 MB in addition to HLS/DASH playlists
+      </div>
+    </div>
+
+    <div class="setting">
+      <label>
+        <input type="checkbox" id="detect-segments" checked>
+        <span>Recover streams from segment traffic</span>
+      </label>
+      <div class="setting-description">
+        When a player hides its playlist, look for common playlist names next to the segments it loads
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
     <h2>Download Settings</h2>
 
     <div class="setting">

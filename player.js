@@ -57,7 +57,7 @@ function loadStream(url, type) {
 
         hlsPlayer.on(Hls.Events.ERROR, (event, data) => {
           if (data.fatal) {
-            showError(`Failed to load stream: ${data.type}. ${data.details || ''}`);
+            showError(`Failed to load stream: ${describeHlsError(data)}`);
             hlsPlayer.destroy();
           }
         });
@@ -324,3 +324,18 @@ window.addEventListener('beforeunload', function() {
     dashPlayer.reset();
   }
 });
+
+// Build a human-readable description of a fatal HLS.js error
+function describeHlsError(data) {
+  const parts = [data.type || 'error'];
+  if (data.details) parts.push(data.details);
+  const code = data.response && data.response.code;
+  if (code) parts.push(`HTTP ${code}`);
+  let hint = '';
+  if (data.type === 'networkError') {
+    hint = code === 403 || code === 401
+      ? 'The server rejected the request (hotlink protection or expired token). Reload the page and try again.'
+      : 'Network error. The stream may be CORS-restricted, expired, or require the original page session.';
+  }
+  return parts.join(' / ') + (hint ? ' - ' + hint : '');
+}

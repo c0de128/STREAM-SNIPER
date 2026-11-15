@@ -98,6 +98,9 @@ async function loadSettings() {
   document.getElementById('show-best-stream-only').checked = settings.showBestStreamOnly || false;
   document.getElementById('auto-preview').checked = settings.autoPreview;
   document.getElementById('preview-quality').value = settings.previewQuality || 'medium';
+  document.getElementById('capture-headers').checked = settings.captureHeaders !== false;
+  document.getElementById('detect-direct-video').checked = settings.detectDirectVideo !== false;
+  document.getElementById('detect-segments').checked = settings.detectSegments !== false;
 
   // Populate download settings
   document.getElementById('download-method').value = downloadSettings.preferredMethod;
@@ -151,7 +154,10 @@ async function saveSettings() {
     saveToHistory: document.getElementById('save-to-history').checked,
     showBestStreamOnly: document.getElementById('show-best-stream-only').checked,
     autoPreview: document.getElementById('auto-preview').checked,
-    previewQuality: document.getElementById('preview-quality').value
+    previewQuality: document.getElementById('preview-quality').value,
+    captureHeaders: document.getElementById('capture-headers').checked,
+    detectDirectVideo: document.getElementById('detect-direct-video').checked,
+    detectSegments: document.getElementById('detect-segments').checked
   };
 
   // Download settings

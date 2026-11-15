@@ -6,7 +6,36 @@ const StorageManager = {
     HISTORY: 'streamHistory',
     STATS: 'streamStats',
     SESSION_COUNT: 'sessionCount',
-    FAVORITES: 'streamFavorites'
+    FAVORITES: 'streamFavorites',
+    SETTINGS: 'settings'
+  },
+
+  // Default general settings (single source of truth for background, popup and options)
+  DEFAULT_SETTINGS: {
+    darkMode: false,
+    notifications: true,
+    autoValidate: false,
+    saveToHistory: true,
+    showBestStreamOnly: false,
+    autoPreview: true,
+    previewQuality: 'medium',
+    captureHeaders: true,
+    detectDirectVideo: true,
+    detectSegments: true
+  },
+
+  // Get general settings merged with defaults
+  async getSettings() {
+    const result = await browser.storage.local.get(this.KEYS.SETTINGS);
+    return Object.assign({}, this.DEFAULT_SETTINGS, result[this.KEYS.SETTINGS] || {});
+  },
+
+  // Save general settings (merged with existing)
+  async saveSettings(partial) {
+    const current = await this.getSettings();
+    const merged = Object.assign({}, current, partial);
+    await browser.storage.local.set({ [this.KEYS.SETTINGS]: merged });
+    return merged;
   },
 
   // Initialize storage
@@ -36,10 +65,16 @@ const StorageManager = {
       const newStream = {
         url: streamData.url,
         type: streamData.type,
-        pageUrl: streamData.pageUrl,
+        typeName: streamData.typeName || '',
+        pageUrl: streamData.pageUrl || '',
+        pageTitle: streamData.pageTitle || '',
+        frameUrl: streamData.frameUrl || '',
         domain: streamData.domain,
         timestamp: Date.now(),
-        quality: streamData.quality || null
+        quality: streamData.quality || null,
+        size: streamData.size || 0,
+        inferred: !!streamData.inferred,
+        headers: streamData.headers || undefined
       };
 
       history.unshift(newStream); // Add to beginning
@@ -59,6 +94,29 @@ const StorageManager = {
   async getHistory() {
     const result = await browser.storage.local.get(this.KEYS.HISTORY);
     return result[this.KEYS.HISTORY] || [];
+  },
+
+  // Filter history by text, domain and time range (days back; 0 = all)
+  filterHistory(history, { query = '', domain = '', days = 0, type = '' } = {}) {
+    const q = query.toLowerCase();
+    const cutoff = days > 0 ? Date.now() - days * 24 * 60 * 60 * 1000 : 0;
+    return history.filter(item => {
+      if (domain && item.domain !== domain) return false;
+      if (type && item.type !== type) return false;
+      if (cutoff && (item.timestamp || 0) < cutoff) return false;
+      if (!q) return true;
+      return (item.url || '').toLowerCase().includes(q) ||
+        (item.domain || '').toLowerCase().includes(q) ||
+        (item.pageTitle || '').toLowerCase().includes(q) ||
+        (item.pageUrl || '').toLowerCase().includes(q);
+    });
+  },
+
+  // Distinct domains in history, most frequent first
+  historyDomains(history) {
+    const counts = {};
+    for (const item of history) counts[item.domain] = (counts[item.domain] || 0) + 1;
+    return Object.entries(counts).sort((a, b) => b[1] - a[1]).map(([d]) => d);
   },
 
   // Search history

@@ -32,13 +32,30 @@ const COMMON_FILES = [
   'player.js',
   'player.css',
   'popup.html',
-  'popup.js',
+  'popup-core.js',
+  'popup-streams.js',
+  'popup-history.js',
+  'popup-stats.js',
+  'popup-downloads.js',
+  'popup-recordings.js',
+  'popup-batch.js',
+  'popup-quality.js',
   'popup.css',
   'quality-selector.html',
   'quality-selector.js',
   'setup-wizard.html',
   'setup-wizard.js',
   'storage-manager.js',
+  'error-handler.js',
+  'stream-recorder.js',
+  'batch-controller.js',
+  'metadata-extractor.js',
+  'analytics-engine.js',
+  'quality-analyzer.js',
+  'stream-deduplicator.js',
+  'hls-downloader.js',
+  'offscreen.html',
+  'offscreen.js',
   'dash.all.min.js',
   'hls.min.js'
 ];
@@ -57,10 +74,40 @@ const CHROME_FILES = [
 // Native messaging files (optional, for documentation)
 const NATIVE_MESSAGING_FILES = [
   'ytdlp-bridge.py',
+  'install-native-host.ps1',
+  'install-native-host.sh',
   'com.streamsniper.ytdlp.firefox.json',
   'com.streamsniper.ytdlp.chrome.json',
   'NATIVE_MESSAGING_SETUP.md'
 ];
+
+/**
+ * Chrome's service worker loads modules via importScripts() while Firefox uses the
+ * manifest's background.scripts list. Fail the build if the two drift apart.
+ */
+function verifyBackgroundScripts() {
+  const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+  const manifestScripts = manifest.background.scripts.filter(f => f !== 'background.js');
+  const source = fs.readFileSync('background.js', 'utf8');
+  const match = source.match(/const BACKGROUND_SCRIPTS = \[([\s\S]*?)\];/);
+  if (!match) {
+    throw new Error('background.js is missing the BACKGROUND_SCRIPTS list used by importScripts()');
+  }
+  const importScripts = [...match[1].matchAll(/'([^']+)'/g)].map(m => m[1]);
+  const a = JSON.stringify(manifestScripts);
+  const b = JSON.stringify(importScripts);
+  if (a !== b) {
+    throw new Error(`Background script lists differ.
+  manifest.json: ${a}
+  background.js: ${b}`);
+  }
+  for (const f of manifestScripts) {
+    if (!COMMON_FILES.includes(f)) {
+      throw new Error(`${f} is loaded by the background but missing from COMMON_FILES in build.js`);
+    }
+  }
+  console.log(`✓ Background script lists in sync (${manifestScripts.length} modules)`);
+}
 
 /**
  * Create builds directory if it doesn't exist
@@ -82,8 +129,25 @@ function createZip(outputPath, files, renameManifest = false) {
       zlib: { level: 9 } // Maximum compression
     });
 
+    let failed = false;
+
+    output.on('error', (err) => {
+      failed = true;
+      if (err.code === 'EPERM' || err.code === 'EBUSY' || err.code === 'UNKNOWN') {
+        reject(new Error(`${path.basename(outputPath)} is in use (is it loaded as a temporary add-on in Firefox?). Remove the add-on, then rebuild.`));
+      } else {
+        reject(err);
+      }
+    });
+
     output.on('close', () => {
-      const sizeMB = (archive.pointer() / 1024 / 1024).toFixed(2);
+      if (failed) return;
+      const bytes = archive.pointer();
+      if (bytes === 0) {
+        reject(new Error(`${path.basename(outputPath)} was written empty. The file may be locked by another program.`));
+        return;
+      }
+      const sizeMB = (bytes / 1024 / 1024).toFixed(2);
       console.log(`  ✓ Created: ${path.basename(outputPath)} (${sizeMB} MB)`);
       resolve();
     });
@@ -246,6 +310,7 @@ async function main() {
 
   // Ensure build directory exists
   ensureBuildDir();
+  verifyBackgroundScripts();
 
   const builds = [];
 

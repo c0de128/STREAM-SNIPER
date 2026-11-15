@@ -1,6 +1,13 @@
 // Import scripts for MV3 service worker compatibility
 if (typeof importScripts === 'function') {
-  importScripts('browser-polyfill.js', 'manifest-parser.js', 'download-manager.js');
+  // BACKGROUND_SCRIPTS must match manifest.json "background.scripts" (minus background.js).
+  // build.js verifies this so Chrome never silently misses a module.
+  const BACKGROUND_SCRIPTS = [
+    'browser-polyfill.js', 'error-handler.js', 'storage-manager.js', 'manifest-parser.js',
+    'hls-downloader.js', 'download-manager.js', 'stream-recorder.js', 'batch-controller.js',
+    'metadata-extractor.js', 'analytics-engine.js', 'quality-analyzer.js'
+  ];
+  importScripts(...BACKGROUND_SCRIPTS);
 }
 
 // Store detected streaming URLs (session storage)
@@ -8,6 +15,103 @@ let detectedStreams = {};
 
 // Detection enabled state
 let detectionEnabled = true;
+
+// Badge/action API: browserAction in MV2 (Firefox), action in MV3 (Chrome/Edge)
+const actionApi = browser.browserAction || browser.action;
+
+// Referer tracking: maps a stream host to the frame/page URL that loaded it.
+// Many CDNs only serve HLS/DASH when the request carries the embedding page as
+// Referer/Origin (hotlink protection). Requests made by the extension itself
+// (popup preview, player tab, validation, manifest parsing) are rewritten to
+// carry that referer so they are accepted like the original player's requests.
+const streamReferers = {};
+const MAX_REFERER_HOSTS = 200;
+
+// Content types that identify a stream manifest even when the URL has no extension
+const STREAM_CONTENT_TYPES = [
+  { match: /application\/vnd\.apple\.mpegurl|application\/x-mpegurl|audio\/mpegurl|audio\/x-mpegurl|application\/mpegurl/i, type: 'm3u8', name: 'HLS (M3U8)' },
+  { match: /application\/dash\+xml/i, type: 'mpd', name: 'MPEG-DASH' },
+  { match: /application\/vnd\.ms-sstr\+xml/i, type: 'ism', name: 'Smooth Streaming (ISM)' }
+];
+
+// Direct (progressive) video/audio files detected by Content-Type when large enough
+const DIRECT_VIDEO_CONTENT_TYPES = [
+  { match: /^video\/mp4/i, type: 'mp4', name: 'MP4 Video' },
+  { match: /^video\/webm/i, type: 'webm', name: 'WebM Video' },
+  { match: /^video\/x-matroska/i, type: 'mkv', name: 'MKV Video' },
+  { match: /^video\/quicktime/i, type: 'mp4', name: 'QuickTime Video' },
+  { match: /^video\/x-flv/i, type: 'flv', name: 'FLV Video' },
+  { match: /^audio\/(mpeg|mp4|aac|x-m4a)/i, type: 'audio', name: 'Audio File' }
+];
+const DIRECT_VIDEO_MIN_BYTES = 1024 * 1024; // ignore tiny clips, thumbnails, ads
+
+// Request headers worth capturing from the page's own stream requests so downloads,
+// VLC and the preview can reproduce them (cookies, auth tokens, custom CDN headers).
+const CAPTURE_HEADER_NAMES = ['cookie', 'authorization', 'user-agent', 'origin', 'referer'];
+const CAPTURE_HEADER_PREFIXES = ['x-'];
+const streamHeaders = {}; // host -> { headerName: value }
+
+// Segment-only detection: some players never expose a playlist URL to the network
+// (inline/blob playlists), only .ts/.m4s segments. Track bursts per tab+directory.
+const SEGMENT_PATTERN = /\.(ts|m4s|m4v|m4a|aac|cmfv|cmfa)(\?|$)/i;
+const SEGMENT_BURST_THRESHOLD = 3;
+const PLAYLIST_GUESSES = ['index.m3u8', 'playlist.m3u8', 'master.m3u8', 'chunklist.m3u8', 'prog_index.m3u8', 'stream.m3u8', 'video.m3u8'];
+const segmentTracker = {}; // tabId -> { dirUrl: { count, sample: [], probed } }
+
+// ---------- Session state persistence (service worker survival) ----------
+// Chrome MV3 kills the worker after ~30s idle; everything in memory is lost. Mirror the
+// per-tab state to storage.session (storage.local fallback) and restore on wake.
+const SESSION_STATE_KEY = 'ssSessionState';
+const sessionStore = (browser.storage && browser.storage.session) ? browser.storage.session : browser.storage.local;
+let persistTimer = null;
+let stateRestored = false;
+
+function persistState() {
+  if (persistTimer) return;
+  persistTimer = setTimeout(async () => {
+    persistTimer = null;
+    try {
+      await sessionStore.set({
+        [SESSION_STATE_KEY]: {
+          detectedStreams,
+          streamReferers,
+          streamHeaders,
+          savedAt: Date.now()
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to persist session state:', err);
+    }
+  }, 300);
+}
+
+async function restoreState() {
+  if (stateRestored) return;
+  stateRestored = true;
+  try {
+    const result = await sessionStore.get(SESSION_STATE_KEY);
+    const saved = result[SESSION_STATE_KEY];
+    if (!saved) return;
+
+    // Drop tabs that no longer exist
+    const openTabs = new Set((await browser.tabs.query({})).map(t => t.id));
+    for (const [tabId, streams] of Object.entries(saved.detectedStreams || {})) {
+      if (openTabs.has(Number(tabId)) && Array.isArray(streams) && streams.length) {
+        if (!detectedStreams[tabId] || detectedStreams[tabId].length === 0) {
+          detectedStreams[tabId] = streams;
+        }
+        updateBadge(Number(tabId));
+      }
+    }
+    Object.assign(streamReferers, saved.streamReferers || {});
+    Object.assign(streamHeaders, saved.streamHeaders || {});
+    if (Object.keys(streamReferers).length) updateRefererRules();
+    console.log('Session state restored:', Object.keys(detectedStreams).length, 'tabs');
+  } catch (err) {
+    console.warn('Failed to restore session state:', err);
+  }
+}
+const stateReady = restoreState();
 
 // Initialize detection state from storage
 browser.storage.local.get('detectionEnabled').then(result => {
@@ -31,62 +135,17 @@ const STREAM_FORMATS = [
   { pattern: /youtube\.com.*\/manifest\/hls_(playlist|variant)/i, type: 'm3u8', name: 'YouTube HLS' }
 ];
 
-// Storage Manager (minimal version for background script)
-const StorageManager = {
-  KEYS: {
-    HISTORY: 'streamHistory',
-    STATS: 'streamStats',
-    SESSION_COUNT: 'sessionCount',
-    SETTINGS: 'settings'
-  },
+// StorageManager is provided by storage-manager.js (loaded before this file).
 
-  async saveStream(streamData) {
-    const history = await this.getHistory();
-    const exists = history.some(item => item.url === streamData.url && item.pageUrl === streamData.pageUrl);
-
-    if (!exists) {
-      history.unshift(streamData);
-      if (history.length > 500) history.length = 500;
-      await browser.storage.local.set({ [this.KEYS.HISTORY]: history });
-      await this.updateStats(streamData.type, streamData.domain);
-      await this.incrementSessionCount();
-    }
-  },
-
-  async getHistory() {
-    const result = await browser.storage.local.get(this.KEYS.HISTORY);
-    return result[this.KEYS.HISTORY] || [];
-  },
-
-  async updateStats(type, domain) {
-    const stats = await this.getStats();
-    stats.total++;
-    stats.byType[type] = (stats.byType[type] || 0) + 1;
-    stats.byDomain[domain] = (stats.byDomain[domain] || 0) + 1;
-    await browser.storage.local.set({ [this.KEYS.STATS]: stats });
-  },
-
-  async getStats() {
-    const result = await browser.storage.local.get(this.KEYS.STATS);
-    return result[this.KEYS.STATS] || { total: 0, byType: {}, byDomain: {} };
-  },
-
-  async incrementSessionCount() {
-    const result = await browser.storage.local.get(this.KEYS.SESSION_COUNT);
-    const count = (result[this.KEYS.SESSION_COUNT] || 0) + 1;
-    await browser.storage.local.set({ [this.KEYS.SESSION_COUNT]: count });
-  },
-
-  async getSettings() {
-    const result = await browser.storage.local.get(this.KEYS.SETTINGS);
-    return result[this.KEYS.SETTINGS] || {
-      notifications: true,
-      autoValidate: false,
-      autoPreview: true,
-      previewQuality: 'medium'
-    };
-  }
-};
+// Cached general settings (kept fresh via storage.onChanged)
+let settingsCache = null;
+async function getSettingsCached() {
+  if (!settingsCache) settingsCache = await StorageManager.getSettings();
+  return settingsCache;
+}
+browser.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.settings) settingsCache = null;
+});
 
 // Extract domain from URL
 function extractDomain(url) {
@@ -275,7 +334,380 @@ async function validateStreamURL(url) {
   }
 }
 
-// Listen for web requests
+// Get the URL of the document (frame) that issued a request
+function getFrameUrl(details) {
+  // Firefox: documentUrl = the frame's document, originUrl = the request origin
+  // Chrome: initiator = origin of the frame that made the request
+  return details.documentUrl || details.originUrl || details.initiator || '';
+}
+
+function isExtensionUrl(url) {
+  return typeof url === 'string' && (url.startsWith('moz-extension://') || url.startsWith('chrome-extension://'));
+}
+
+function extractHost(url) {
+  try {
+    return new URL(url).host;
+  } catch (e) {
+    return '';
+  }
+}
+
+// Remember which page/frame loaded a stream host so our own requests can mimic it
+function rememberReferer(streamUrl, frameUrl) {
+  if (!frameUrl || isExtensionUrl(frameUrl)) return;
+  const host = extractHost(streamUrl);
+  if (!host) return;
+
+  // Keep the map bounded
+  const hosts = Object.keys(streamReferers);
+  if (!streamReferers[host] && hosts.length >= MAX_REFERER_HOSTS) {
+    delete streamReferers[hosts[0]];
+  }
+
+  if (streamReferers[host] !== frameUrl) {
+    streamReferers[host] = frameUrl;
+    updateRefererRules();
+    persistState();
+  }
+}
+
+function getRefererForUrl(url) {
+  const host = extractHost(url);
+  return host ? streamReferers[host] : undefined;
+}
+
+// Capture headers from the page's own request to a stream host
+function captureHeaders(details) {
+  const host = extractHost(details.url);
+  if (!host || !details.requestHeaders) return;
+  const captured = streamHeaders[host] || {};
+  let changed = false;
+  for (const h of details.requestHeaders) {
+    const name = h.name.toLowerCase();
+    const wanted = CAPTURE_HEADER_NAMES.includes(name) || CAPTURE_HEADER_PREFIXES.some(p => name.startsWith(p));
+    if (!wanted || !h.value) continue;
+    if (captured[name] !== h.value) {
+      captured[name] = h.value;
+      changed = true;
+    }
+  }
+  if (changed) {
+    streamHeaders[host] = captured;
+    // Attach to any detected stream objects for this host so the popup can show/copy them
+    const tabStreams = detectedStreams[details.tabId] || [];
+    for (const st of tabStreams) {
+      if (extractHost(st.url) === host) st.headers = { ...captured };
+    }
+    persistState();
+    updateRefererRules();
+  }
+}
+
+// Headers (beyond Referer/Origin) that extension requests should replay for a host
+function getReplayHeaders(host) {
+  const captured = streamHeaders[host];
+  if (!captured) return [];
+  const out = [];
+  for (const [name, value] of Object.entries(captured)) {
+    if (name === 'referer' || name === 'origin' || name === 'user-agent') continue;
+    out.push({ name, value });
+  }
+  return out;
+}
+
+// Everything another component needs to reproduce the page's request for a stream URL
+function getStreamContext(url) {
+  const host = extractHost(url);
+  const captured = (host && streamHeaders[host]) || {};
+  const referer = (host && streamReferers[host]) || captured.referer || '';
+  let origin = captured.origin || '';
+  if (!origin && referer) {
+    try { origin = new URL(referer).origin; } catch (e) { /* ignore */ }
+  }
+  const headers = {};
+  for (const [name, value] of Object.entries(captured)) {
+    if (name === 'referer' || name === 'origin' || name === 'user-agent') continue;
+    headers[name] = value;
+  }
+  return {
+    referer,
+    origin,
+    userAgent: captured['user-agent'] || (typeof navigator !== 'undefined' ? navigator.userAgent : ''),
+    headers
+  };
+}
+
+// Chrome/Edge MV3: use declarativeNetRequest session rules to set Referer/Origin
+// on requests made by the extension to known stream hosts.
+const REFERER_RULE_BASE_ID = 10000;
+let refererRulesUpdating = false;
+let refererRulesDirty = false;
+
+async function updateRefererRules() {
+  if (!browser.declarativeNetRequest || !browser.declarativeNetRequest.updateSessionRules) return;
+  if (refererRulesUpdating) {
+    refererRulesDirty = true;
+    return;
+  }
+  refererRulesUpdating = true;
+
+  try {
+    const existing = await browser.declarativeNetRequest.getSessionRules();
+    const removeRuleIds = existing
+      .map(r => r.id)
+      .filter(id => id >= REFERER_RULE_BASE_ID && id < REFERER_RULE_BASE_ID + MAX_REFERER_HOSTS * 2);
+
+    const addRules = [];
+    let id = REFERER_RULE_BASE_ID;
+    const resourceTypes = ['xmlhttprequest', 'media', 'other', 'image', 'script', 'object'];
+
+    for (const [host, frameUrl] of Object.entries(streamReferers)) {
+      let origin;
+      try {
+        origin = new URL(frameUrl).origin;
+      } catch (e) {
+        continue;
+      }
+      const requestHeaders = [
+        { header: 'Referer', operation: 'set', value: frameUrl },
+        { header: 'Origin', operation: 'set', value: origin }
+      ];
+      for (const h of getReplayHeaders(host)) {
+        requestHeaders.push({ header: h.name, operation: 'set', value: h.value });
+      }
+      const action = { type: 'modifyHeaders', requestHeaders };
+      // Requests from extension pages (initiator = chrome-extension://<id>)
+      addRules.push({
+        id: id++,
+        priority: 1,
+        action,
+        condition: { urlFilter: '||' + host + '/', initiatorDomains: [browser.runtime.id], resourceTypes }
+      });
+      // Requests not associated with a tab (popup, service worker fetch)
+      addRules.push({
+        id: id++,
+        priority: 1,
+        action,
+        condition: { urlFilter: '||' + host + '/', tabIds: [-1], resourceTypes }
+      });
+    }
+
+    await browser.declarativeNetRequest.updateSessionRules({ removeRuleIds, addRules });
+  } catch (err) {
+    console.error('Failed to update referer rules:', err);
+  } finally {
+    refererRulesUpdating = false;
+    if (refererRulesDirty) {
+      refererRulesDirty = false;
+      updateRefererRules();
+    }
+  }
+}
+
+// Firefox MV2: rewrite headers on the extension's own requests with blocking webRequest
+function setupRefererRewriting() {
+  if (browser.declarativeNetRequest && browser.declarativeNetRequest.updateSessionRules) {
+    // MV3: rewriting handled by updateRefererRules(); still observe page headers for capture
+    if (browser.webRequest && browser.webRequest.onBeforeSendHeaders) {
+      const extra = ['requestHeaders'];
+      // Chrome hides Cookie/Authorization unless extraHeaders is requested
+      if (browser.webRequest.OnBeforeSendHeadersOptions && browser.webRequest.OnBeforeSendHeadersOptions.EXTRA_HEADERS) {
+        extra.push('extraHeaders');
+      }
+      try {
+        browser.webRequest.onBeforeSendHeaders.addListener(
+          function(details) {
+            if (details.tabId < 0) return;
+            if (isExtensionUrl(details.initiator) || isExtensionUrl(details.documentUrl)) return;
+            if (settingsCache && settingsCache.captureHeaders === false) return;
+            if (streamReferers[extractHost(details.url)]) captureHeaders(details);
+          },
+          { urls: ['<all_urls>'] },
+          extra
+        );
+      } catch (err) {
+        console.warn('Header capture unavailable:', err);
+      }
+    }
+    return;
+  }
+  if (!browser.webRequest || !browser.webRequest.onBeforeSendHeaders) return;
+
+  try {
+    browser.webRequest.onBeforeSendHeaders.addListener(
+      function(details) {
+        const fromExtension = isExtensionUrl(details.originUrl) || isExtensionUrl(details.documentUrl) ||
+          (details.tabId === -1 && !details.documentUrl);
+
+        // Page request to a known stream host: learn its headers
+        if (!fromExtension) {
+          if (details.tabId >= 0 && settingsCache && settingsCache.captureHeaders !== false && streamReferers[extractHost(details.url)]) {
+            captureHeaders(details);
+          }
+          return;
+        }
+
+        const referer = getRefererForUrl(details.url);
+        if (!referer) return;
+
+        let origin;
+        try {
+          origin = new URL(referer).origin;
+        } catch (e) {
+          return;
+        }
+
+        const replay = getReplayHeaders(extractHost(details.url));
+        const replayNames = new Set(replay.map(h => h.name));
+        const headers = (details.requestHeaders || []).filter(h => {
+          const name = h.name.toLowerCase();
+          return name !== 'referer' && name !== 'origin' && !replayNames.has(name);
+        });
+        headers.push({ name: 'Referer', value: referer });
+        headers.push({ name: 'Origin', value: origin });
+        for (const h of replay) headers.push({ name: h.name, value: h.value });
+        return { requestHeaders: headers };
+      },
+      { urls: ['<all_urls>'] },
+      ['blocking', 'requestHeaders']
+    );
+    console.log('Referer rewriting enabled (webRequest blocking)');
+  } catch (err) {
+    console.error('Could not enable referer rewriting:', err);
+  }
+}
+setupRefererRewriting();
+
+// Shared handler for a request identified as a stream (by URL pattern or by Content-Type)
+function handleDetectedStream(details, streamInfo) {
+  const url = details.url;
+  const tabId = details.tabId;
+
+  if (streamInfo.type === 'unknown' || tabId < 0) return;
+
+  const frameUrl = getFrameUrl(details);
+  rememberReferer(url, frameUrl);
+
+  // Initialize array if needed
+  if (!detectedStreams[tabId]) {
+    detectedStreams[tabId] = [];
+  }
+
+  // Special handling for YouTube videos to prevent spam
+  if (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') {
+    const videoId = getYouTubeVideoId(url);
+
+    // Check if we already have a stream for this YouTube video
+    const existingIndex = detectedStreams[tabId].findIndex(s =>
+      (s.type === 'youtube-video' || s.type === 'youtube-audio') &&
+      s.videoId === videoId
+    );
+
+    if (existingIndex !== -1) {
+      // Already have this video - only update if this is higher quality
+      const existing = detectedStreams[tabId][existingIndex];
+      const existingQuality = existing.quality || '';
+      const newQuality = streamInfo.quality || '';
+
+      // Simple quality comparison (prefer higher resolution numbers)
+      const existingNum = parseInt(existingQuality.match(/\d+/)?.[0] || '0');
+      const newNum = parseInt(newQuality.match(/\d+/)?.[0] || '0');
+
+      if (newNum > existingNum) {
+        // Update with higher quality
+        detectedStreams[tabId][existingIndex].url = url;
+        detectedStreams[tabId][existingIndex].quality = newQuality;
+        console.log(`Updated YouTube video ${videoId} to ${newQuality}`);
+      }
+      return; // Skip adding duplicate
+    }
+  }
+
+  // Check if already detected in current session (normalize YouTube URLs for comparison)
+  const normalizedUrl = normalizeYouTubeURL(url);
+  const alreadyDetected = detectedStreams[tabId].some(s =>
+    normalizeYouTubeURL(s.url) === normalizedUrl
+  );
+
+  if (alreadyDetected) return;
+
+  console.log(`${streamInfo.name} stream detected:`, url, frameUrl ? `(frame: ${frameUrl})` : '');
+
+  // Create basic stream data immediately
+  const streamData = {
+    url: url,
+    type: streamInfo.type,
+    typeName: streamInfo.name,
+    domain: extractDomain(url),
+    pageUrl: '',
+    pageTitle: '',
+    frameUrl: frameUrl,
+    timestamp: Date.now(),
+    quality: streamInfo.quality || '',
+    inferred: !!streamInfo.inferred,
+    size: streamInfo.size || 0,
+    headers: streamHeaders[extractHost(url)] ? { ...streamHeaders[extractHost(url)] } : undefined,
+    videoId: (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') ? getYouTubeVideoId(url) : undefined
+  };
+
+  detectedStreams[tabId].push(streamData);
+  persistState();
+
+  // Update badge immediately
+  updateBadge(tabId);
+
+  // Auto-validate stream immediately (non-blocking)
+  validateStreamURL(url).then(validationResult => {
+    streamData.validationStatus = validationResult.status;
+    streamData.validationValid = validationResult.valid;
+    streamData.validationError = validationResult.error;
+    streamData.validationStatusText = validationResult.statusText;
+  }).catch(err => {
+    console.error('Error validating stream:', err);
+  });
+
+  // Get tab info and save asynchronously (non-blocking)
+  browser.tabs.get(tabId).then(async (tab) => {
+    // Update with page info
+    streamData.pageUrl = tab.url || frameUrl;
+    streamData.pageTitle = tab.title;
+
+    // Extract metadata if available
+    try {
+      if (typeof MetadataExtractor !== 'undefined') {
+        const enriched = await MetadataExtractor.enrichStreamData(streamData, tabId);
+        // Merge enriched data
+        Object.assign(streamData, enriched);
+      }
+    } catch (metaError) {
+      console.log('Metadata extraction failed (non-critical):', metaError);
+    }
+
+    // Save to persistent storage (unless history is disabled in settings)
+    const generalSettings = await getSettingsCached();
+    if (generalSettings.saveToHistory !== false) {
+      await StorageManager.saveStream(streamData);
+    }
+    persistState();
+
+    // Track stream detection in analytics
+    if (typeof AnalyticsEngine !== 'undefined') {
+      AnalyticsEngine.trackStreamDetection(streamData).catch(err => {
+        console.log('Analytics tracking failed (non-critical):', err);
+      });
+    }
+
+    // Show notification if enabled
+    if (generalSettings.notifications) {
+      showNotification(streamInfo.name, url, tab.title);
+    }
+  }).catch(err => {
+    console.error('Error getting tab info:', err);
+  });
+}
+
+// Listen for web requests: detect streams by URL pattern
 browser.webRequest.onBeforeRequest.addListener(
   function(details) {
     // Skip if detection is disabled
@@ -283,136 +715,382 @@ browser.webRequest.onBeforeRequest.addListener(
       return;
     }
 
-    const url = details.url;
-    const tabId = details.tabId;
+    const streamInfo = getStreamType(details.url);
+    if (streamInfo.type !== 'unknown') {
+      handleDetectedStream(details, streamInfo);
+      return;
+    }
 
-    // Check if URL matches any streaming format
-    const streamInfo = getStreamType(url);
-
-    if (streamInfo.type !== 'unknown' && tabId >= 0) {
-      // Initialize array if needed
-      if (!detectedStreams[tabId]) {
-        detectedStreams[tabId] = [];
-      }
-
-      // Special handling for YouTube videos to prevent spam
-      if (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') {
-        const videoId = getYouTubeVideoId(url);
-
-        // Check if we already have a stream for this YouTube video
-        const existingIndex = detectedStreams[tabId].findIndex(s =>
-          (s.type === 'youtube-video' || s.type === 'youtube-audio') &&
-          s.videoId === videoId
-        );
-
-        if (existingIndex !== -1) {
-          // Already have this video - only update if this is higher quality
-          const existing = detectedStreams[tabId][existingIndex];
-          const existingQuality = existing.quality || '';
-          const newQuality = streamInfo.quality || '';
-
-          // Simple quality comparison (prefer higher resolution numbers)
-          const existingNum = parseInt(existingQuality.match(/\d+/)?.[0] || '0');
-          const newNum = parseInt(newQuality.match(/\d+/)?.[0] || '0');
-
-          if (newNum > existingNum) {
-            // Update with higher quality
-            detectedStreams[tabId][existingIndex].url = url;
-            detectedStreams[tabId][existingIndex].quality = newQuality;
-            console.log(`Updated YouTube video ${videoId} to ${newQuality}`);
-          }
-          return; // Skip adding duplicate
-        }
-      }
-
-      // Check if already detected in current session (normalize YouTube URLs for comparison)
-      const normalizedUrl = normalizeYouTubeURL(url);
-      const alreadyDetected = detectedStreams[tabId].some(s =>
-        normalizeYouTubeURL(s.url) === normalizedUrl
-      );
-
-      if (!alreadyDetected) {
-        console.log(`${streamInfo.name} stream detected:`, url);
-
-        // Create basic stream data immediately
-        const streamData = {
-          url: url,
-          type: streamInfo.type,
-          typeName: streamInfo.name,
-          domain: extractDomain(url),
-          pageUrl: '',
-          pageTitle: '',
-          timestamp: Date.now(),
-          quality: streamInfo.quality || '',
-          videoId: (streamInfo.type === 'youtube-video' || streamInfo.type === 'youtube-audio') ? getYouTubeVideoId(url) : undefined
-        };
-
-        detectedStreams[tabId].push(streamData);
-
-        // Update badge immediately
-        updateBadge(tabId);
-
-        // Auto-validate stream immediately (non-blocking)
-        validateStreamURL(url).then(validationResult => {
-          streamData.validationStatus = validationResult.status;
-          streamData.validationValid = validationResult.valid;
-          streamData.validationError = validationResult.error;
-          streamData.validationStatusText = validationResult.statusText;
-        }).catch(err => {
-          console.error('Error validating stream:', err);
-        });
-
-        // Get tab info and save asynchronously (non-blocking)
-        browser.tabs.get(tabId).then(async (tab) => {
-          // Update with page info
-          streamData.pageUrl = tab.url;
-          streamData.pageTitle = tab.title;
-
-          // Extract metadata if available
-          try {
-            if (typeof MetadataExtractor !== 'undefined') {
-              const enriched = await MetadataExtractor.enrichStreamData(streamData, tabId);
-              // Merge enriched data
-              Object.assign(streamData, enriched);
-            }
-          } catch (metaError) {
-            console.log('Metadata extraction failed (non-critical):', metaError);
-          }
-
-          // Save to persistent storage
-          await StorageManager.saveStream(streamData);
-
-          // Track stream detection in analytics
-          if (typeof AnalyticsEngine !== 'undefined') {
-            AnalyticsEngine.trackStreamDetection(streamData).catch(err => {
-              console.log('Analytics tracking failed (non-critical):', err);
-            });
-          }
-
-          // Show notification if enabled
-          const settings = await StorageManager.getSettings();
-          if (settings.notifications) {
-            showNotification(streamInfo.name, url, tab.title);
-          }
-        }).catch(err => {
-          console.error('Error getting tab info:', err);
-        });
-      }
+    // Segment-only streams: count media segments per directory
+    if (details.tabId >= 0 && SEGMENT_PATTERN.test(details.url) && !isExtensionUrl(getFrameUrl(details))) {
+      trackSegment(details);
     }
   },
   {urls: ["<all_urls>"]}
 );
+
+// ---------- Segment-only detection ----------
+function segmentDirectory(url) {
+  try {
+    const u = new URL(url);
+    const dir = u.pathname.substring(0, u.pathname.lastIndexOf('/') + 1);
+    return u.origin + dir;
+  } catch (e) {
+    return '';
+  }
+}
+
+function trackSegment(details) {
+  if (settingsCache && settingsCache.detectSegments === false) return;
+  const tabId = details.tabId;
+  const dir = segmentDirectory(details.url);
+  if (!dir) return;
+
+  // If a playlist on this host was already detected, nothing to infer
+  const host = extractHost(details.url);
+  const tabStreams = detectedStreams[tabId] || [];
+  if (tabStreams.some(s => extractHost(s.url) === host && (s.type === 'm3u8' || s.type === 'mpd'))) return;
+
+  if (!segmentTracker[tabId]) segmentTracker[tabId] = {};
+  const entry = segmentTracker[tabId][dir] || { count: 0, sample: [], probed: false };
+  entry.count++;
+  if (entry.sample.length < 3) entry.sample.push(details.url);
+  segmentTracker[tabId][dir] = entry;
+
+  if (entry.count >= SEGMENT_BURST_THRESHOLD && !entry.probed) {
+    entry.probed = true;
+    rememberReferer(details.url, getFrameUrl(details));
+    probeForPlaylist(details, dir, entry.sample);
+  }
+}
+
+// Try common playlist names in the segment directory and its parent; otherwise record the segment base
+async function probeForPlaylist(details, dir, sample) {
+  const candidates = [];
+  const dirs = [dir];
+  try {
+    const parent = new URL('..', dir).href;
+    if (parent !== dir) dirs.push(parent);
+  } catch (e) { /* ignore */ }
+  for (const d of dirs) for (const name of PLAYLIST_GUESSES) candidates.push(d + name);
+
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, { method: 'GET', cache: 'no-store', credentials: 'include' });
+      if (!response.ok) continue;
+      const ct = (response.headers.get('content-type') || '').toLowerCase();
+      const text = await response.text();
+      if (ct.includes('mpegurl') || text.trim().startsWith('#EXTM3U')) {
+        handleDetectedStream({ ...details, url: candidate }, { type: 'm3u8', name: 'HLS (M3U8, recovered)', inferred: true });
+        return;
+      }
+    } catch (e) {
+      // try next
+    }
+  }
+
+  // No playlist found: expose the segment directory so the user at least knows a stream is there
+  handleDetectedStream({ ...details, url: dir }, {
+    type: 'hls-segments',
+    name: 'HLS Segments (playlist not captured)',
+    inferred: true,
+    sample
+  });
+}
+
+// Detect streams by response Content-Type (catches extensionless/tokenized playlist URLs)
+if (browser.webRequest && browser.webRequest.onHeadersReceived) {
+  browser.webRequest.onHeadersReceived.addListener(
+    function(details) {
+      if (!detectionEnabled || details.tabId < 0) return;
+      if (isExtensionUrl(getFrameUrl(details))) return;
+
+      // Already handled by URL pattern matching
+      if (getStreamType(details.url).type !== 'unknown') return;
+
+      const headerMap = {};
+      for (const h of details.responseHeaders || []) headerMap[h.name.toLowerCase()] = h.value;
+      const contentType = headerMap['content-type'];
+      if (!contentType) return;
+
+      for (const ct of STREAM_CONTENT_TYPES) {
+        if (ct.match.test(contentType)) {
+          handleDetectedStream(details, { type: ct.type, name: ct.name });
+          return;
+        }
+      }
+
+      // Direct progressive video/audio files
+      if (settingsCache && settingsCache.detectDirectVideo === false) return;
+      if (SEGMENT_PATTERN.test(details.url)) return;
+      for (const ct of DIRECT_VIDEO_CONTENT_TYPES) {
+        if (!ct.match.test(contentType)) continue;
+        // Size: Content-Range total (range requests) or Content-Length
+        let size = 0;
+        const range = headerMap['content-range'];
+        if (range) {
+          const m = range.match(/\/(\d+)\s*$/);
+          if (m) size = parseInt(m[1], 10);
+        }
+        if (!size && headerMap['content-length']) size = parseInt(headerMap['content-length'], 10) || 0;
+        if (size && size < DIRECT_VIDEO_MIN_BYTES) return;
+        if (!size && details.type !== 'media') return; // unknown size and not a <video> load: skip
+
+        // Normalise: drop range-style query params so repeated chunk requests dedupe
+        handleDetectedStream(details, { type: ct.type, name: ct.name, size });
+        return;
+      }
+    },
+    {urls: ["<all_urls>"]},
+    ['responseHeaders']
+  );
+}
+
+
+// ========== PLAY IN VLC ==========
+
+// Launch VLC through the native messaging host (ytdlp-bridge.py). Resolves with
+// { success, error } and never rejects. Falls back to playlist download if the
+// native host is not installed.
+function launchVlcNative(url, referer, userAgent) {
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try { port.disconnect(); } catch (e) { /* ignore */ }
+      resolve(result);
+    };
+
+    let port;
+    try {
+      port = browser.runtime.connectNative('com.streamsniper.ytdlp');
+    } catch (error) {
+      resolve({ success: false, error: error.message });
+      return;
+    }
+
+    const timer = setTimeout(() => finish({ success: false, error: 'Native host timed out' }), 8000);
+
+    port.onMessage.addListener((message) => {
+      if (message.type === 'vlcLaunched') {
+        finish({ success: true });
+      } else if (message.type === 'error' || message.error) {
+        finish({ success: false, error: message.error || 'Native host error' });
+      }
+    });
+
+    port.onDisconnect.addListener(() => {
+      const err = browser.runtime.lastError ? browser.runtime.lastError.message : 'Native host disconnected';
+      finish({ success: false, error: err });
+    });
+
+    port.postMessage({ type: 'playInVlc', url, referer: referer || '', userAgent: userAgent || '' });
+  });
+}
+
+function escapeXml(text) {
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// Build an XSPF playlist VLC can open directly. vlc:option entries carry the
+// referer and user agent so hotlink-protected streams play outside the browser.
+function buildVlcPlaylist(url, referer, userAgent, title) {
+  const options = [];
+  if (referer) options.push(`http-referrer=${referer}`);
+  if (userAgent) options.push(`http-user-agent=${userAgent}`);
+  options.push('network-caching=3000');
+
+  const optionXml = options.map(o => `        <vlc:option>${escapeXml(o)}</vlc:option>`).join('\n');
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<playlist xmlns="http://xspf.org/ns/0/" xmlns:vlc="http://www.videolan.org/vlc/playlist/ns/0/" version="1">
+  <title>${escapeXml(title || 'Stream Sniper')}</title>
+  <trackList>
+    <track>
+      <location>${escapeXml(url)}</location>
+      <title>${escapeXml(title || 'Stream')}</title>
+      <extension application="http://www.videolan.org/vlc/playlist/0">
+        <vlc:id>0</vlc:id>
+${optionXml}
+      </extension>
+    </track>
+  </trackList>
+</playlist>
+`;
+}
+
+function safeFilename(text) {
+  return String(text || 'stream')
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 80) || 'stream';
+}
+
+// Wait for a download to reach a final state
+function waitForDownload(downloadId, timeoutMs) {
+  return new Promise((resolve) => {
+    let done = false;
+    const cleanup = (result) => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      browser.downloads.onChanged.removeListener(listener);
+      resolve(result);
+    };
+    const listener = (delta) => {
+      if (delta.id !== downloadId || !delta.state) return;
+      if (delta.state.current === 'complete') cleanup({ complete: true });
+      else if (delta.state.current === 'interrupted') cleanup({ complete: false, error: 'Download interrupted' });
+    };
+    browser.downloads.onChanged.addListener(listener);
+    const timer = setTimeout(() => cleanup({ complete: false, error: 'Download timed out' }), timeoutMs);
+
+    // The download may already be finished
+    browser.downloads.search({ id: downloadId }).then(items => {
+      if (items && items[0] && items[0].state === 'complete') cleanup({ complete: true });
+    }).catch(() => {});
+  });
+}
+
+// Fallback: save an .xspf playlist and ask the browser to open it with the default app (VLC)
+async function downloadVlcPlaylist(url, referer, userAgent, title) {
+  const xml = buildVlcPlaylist(url, referer, userAgent, title);
+  const filename = `StreamSniper/${safeFilename(title)}.xspf`;
+
+  // Firefox rejects data: URLs in downloads.download ("Access denied"), so use a
+  // blob URL where the context can create one (Firefox background page). Chrome's
+  // service worker cannot create blob URLs but does accept data: URLs.
+  let blobUrl = null;
+  let playlistUrl;
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function' && typeof Blob !== 'undefined') {
+    blobUrl = URL.createObjectURL(new Blob([xml], { type: 'application/xspf+xml' }));
+    playlistUrl = blobUrl;
+  } else {
+    playlistUrl = 'data:application/xspf+xml;charset=utf-8,' + encodeURIComponent(xml);
+  }
+
+  let downloadId;
+  let status;
+  try {
+    downloadId = await browser.downloads.download({
+      url: playlistUrl,
+      filename,
+      conflictAction: 'overwrite',
+      saveAs: false
+    });
+    status = await waitForDownload(downloadId, 15000);
+  } finally {
+    if (blobUrl) URL.revokeObjectURL(blobUrl);
+  }
+
+  if (!status.complete) {
+    return { success: false, downloadId, error: status.error };
+  }
+
+  let opened = false;
+  let openError = null;
+  if (browser.downloads.open) {
+    try {
+      await browser.downloads.open(downloadId);
+      opened = true;
+    } catch (error) {
+      openError = error.message;
+    }
+  } else {
+    openError = 'downloads.open not available';
+  }
+
+  // Report where the browser actually saved it (the download folder is user-configurable)
+  let savedPath = null;
+  try {
+    const items = await browser.downloads.search({ id: downloadId });
+    if (items && items[0] && items[0].filename) savedPath = items[0].filename;
+  } catch (error) { /* fall back to the relative name */ }
+
+  return { success: true, downloadId, opened, error: openError, filename, savedPath };
+}
+
+// Pick the most useful stream on a tab: playlists first, then largest direct file
+function pickBestStream(streams) {
+  if (!streams || streams.length === 0) return null;
+  const rank = { m3u8: 0, mpd: 1, m3u: 2, ism: 3, ismc: 3, mp4: 4, webm: 5, mkv: 5, flv: 6, 'youtube-video': 7, audio: 8, 'hls-segments': 9 };
+  return [...streams]
+    .filter(s => s.type !== 'hls-segments')
+    .sort((a, b) => ((rank[a.type] ?? 50) - (rank[b.type] ?? 50)) || ((b.size || 0) - (a.size || 0)) || (a.timestamp - b.timestamp))[0] || null;
+}
+
+async function playBestInVlc(tabId) {
+  if (tabId === undefined || tabId === null) {
+    const tabs = await browser.tabs.query({ active: true, currentWindow: true });
+    tabId = tabs[0] && tabs[0].id;
+  }
+  const stream = pickBestStream(detectedStreams[tabId]);
+  if (!stream) {
+    browser.notifications.create({ type: 'basic', iconUrl: 'icon.png', title: 'Stream Sniper', message: 'No stream detected on this page yet.' });
+    return { success: false, error: 'No stream detected' };
+  }
+  const context = getStreamContext(stream.url);
+  const native = await launchVlcNative(stream.url, stream.frameUrl || context.referer || stream.pageUrl || '', context.userAgent);
+  if (native.success) return { success: true, method: 'native' };
+  const playlist = await downloadVlcPlaylist(stream.url, stream.frameUrl || context.referer || '', context.userAgent, stream.pageTitle || stream.domain);
+  if (!playlist.opened) {
+    browser.notifications.create({ type: 'basic', iconUrl: 'icon.png', title: 'Stream Sniper', message: `Playlist saved to Downloads/${playlist.filename || 'StreamSniper'}. Open it to play in VLC.` });
+  }
+  return { ...playlist, method: 'playlist' };
+}
+
+// Context menu: play the page's best stream, or a right-clicked stream link, in VLC
+const menusApi = browser.contextMenus || browser.menus;
+if (menusApi) {
+  const createMenus = () => {
+    try {
+      menusApi.removeAll().then(() => {
+        menusApi.create({ id: 'ss-play-best-vlc', title: 'Play detected stream in VLC', contexts: ['page', 'video', 'frame'] });
+        menusApi.create({
+          id: 'ss-play-link-vlc',
+          title: 'Play link in VLC',
+          contexts: ['link'],
+          targetUrlPatterns: ['*://*/*.m3u8*', '*://*/*.mpd*', '*://*/*.mp4*', '*://*/*.webm*', '*://*/*.mkv*']
+        });
+      }).catch(() => {});
+    } catch (err) {
+      console.warn('Context menu setup failed:', err);
+    }
+  };
+  browser.runtime.onInstalled.addListener(createMenus);
+  if (browser.runtime.onStartup) browser.runtime.onStartup.addListener(createMenus);
+  createMenus();
+
+  menusApi.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === 'ss-play-best-vlc') {
+      playBestInVlc(tab && tab.id).catch(err => console.error('Play in VLC failed:', err));
+    } else if (info.menuItemId === 'ss-play-link-vlc' && info.linkUrl) {
+      const ctx = getStreamContext(info.linkUrl);
+      launchVlcNative(info.linkUrl, ctx.referer || (tab && tab.url) || '', ctx.userAgent).then(native => {
+        if (!native.success) return downloadVlcPlaylist(info.linkUrl, ctx.referer || (tab && tab.url) || '', ctx.userAgent, (tab && tab.title) || 'Stream');
+      }).catch(err => console.error('Play link in VLC failed:', err));
+    }
+  });
+}
 
 // Update badge with stream count
 function updateBadge(tabId) {
   const count = detectedStreams[tabId] ? detectedStreams[tabId].length : 0;
 
   if (count > 0) {
-    browser.browserAction.setBadgeText({
+    actionApi.setBadgeText({
       text: count.toString(),
       tabId: tabId
     });
-    browser.browserAction.setBadgeBackgroundColor({
+    actionApi.setBadgeBackgroundColor({
       color: '#4a90e2',
       tabId: tabId
     });
@@ -432,13 +1110,17 @@ function showNotification(streamType, url, pageTitle) {
 // Clean up when tab is closed
 browser.tabs.onRemoved.addListener(function(tabId) {
   delete detectedStreams[tabId];
+  delete segmentTracker[tabId];
+  persistState();
 });
 
 // Clean up when tab is updated (navigates to new page)
 browser.tabs.onUpdated.addListener(function(tabId, changeInfo, tab) {
   if (changeInfo.status === 'loading') {
     detectedStreams[tabId] = [];
-    browser.browserAction.setBadgeText({
+    delete segmentTracker[tabId];
+    persistState();
+    actionApi.setBadgeText({
       text: '',
       tabId: tabId
     });
@@ -453,18 +1135,28 @@ browser.runtime.onStartup.addListener(async function() {
 // Message handler for popup
 browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === 'getStreams') {
-    browser.tabs.query({active: true, currentWindow: true}).then(tabs => {
+    stateReady.then(() => browser.tabs.query({active: true, currentWindow: true})).then(tabs => {
       const tabId = tabs[0].id;
       const streams = detectedStreams[tabId] || [];
       sendResponse({streams: streams});
-    });
+    }).catch(() => sendResponse({streams: []}));
+    return true;
+  }
+
+  if (request.action === 'getStreamContext') {
+    sendResponse(getStreamContext(request.url || ''));
+    return;
+  }
+
+  if (request.action === 'playBestInVlc') {
+    playBestInVlc(request.tabId).then(result => sendResponse(result)).catch(err => sendResponse({ success: false, error: err.message }));
     return true;
   }
 
   if (request.action === 'clearStreams') {
     const tabId = request.tabId;
     detectedStreams[tabId] = [];
-    browser.browserAction.setBadgeText({
+    actionApi.setBadgeText({
       text: '',
       tabId: tabId
     });
@@ -512,7 +1204,7 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (!detectionEnabled) {
       browser.tabs.query({}).then(tabs => {
         tabs.forEach(tab => {
-          browser.browserAction.setBadgeText({
+          actionApi.setBadgeText({
             text: '',
             tabId: tab.id
           });
@@ -671,6 +1363,37 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       }
     })();
 
+    return true;
+  }
+
+  if (request.action === 'playInVlc') {
+    (async () => {
+      try {
+        const { url, referer, title } = request;
+        if (!url) {
+          sendResponse({ success: false, error: 'No stream URL' });
+          return;
+        }
+        const context = getStreamContext(url);
+        const userAgent = context.userAgent || (typeof navigator !== 'undefined' && navigator.userAgent) || '';
+        const effectiveReferer = referer || context.referer || '';
+
+        // 1. Native host: launches VLC directly with referer/user-agent options
+        const native = await launchVlcNative(url, effectiveReferer, userAgent);
+        if (native.success) {
+          sendResponse({ success: true, method: 'native' });
+          return;
+        }
+        console.log('VLC native launch unavailable, falling back to playlist:', native.error);
+
+        // 2. Fallback: download an .xspf playlist and open it with the default app
+        const playlist = await downloadVlcPlaylist(url, effectiveReferer, userAgent, title);
+        sendResponse({ ...playlist, method: 'playlist', nativeError: native.error });
+      } catch (error) {
+        console.error('Play in VLC failed:', error);
+        sendResponse({ success: false, error: error.message });
+      }
+    })();
     return true;
   }
 
@@ -1154,6 +1877,11 @@ browser.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 browser.commands.onCommand.addListener(async function(command) {
   console.log('Keyboard command received:', command);
 
+  if (command === 'play-in-vlc') {
+    playBestInVlc().catch(err => console.error('Play in VLC failed:', err));
+    return;
+  }
+
   if (command === 'toggle-detection') {
     // Toggle stream detection on/off
     detectionEnabled = !detectionEnabled;
@@ -1171,7 +1899,7 @@ browser.commands.onCommand.addListener(async function(command) {
     if (!detectionEnabled) {
       browser.tabs.query({}).then(tabs => {
         tabs.forEach(tab => {
-          browser.browserAction.setBadgeText({
+          actionApi.setBadgeText({
             text: '',
             tabId: tab.id
           });

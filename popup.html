@@ -37,6 +37,11 @@
           <option value="m3u">M3U</option>
           <option value="mpd">MPEG-DASH</option>
           <option value="ism">Smooth Streaming</option>
+          <option value="mp4">MP4 / Direct</option>
+          <option value="webm">WebM</option>
+          <option value="mkv">MKV</option>
+          <option value="audio">Audio</option>
+          <option value="hls-segments">Segments only</option>
         </select>
         <div class="detection-toggle-container">
           <span class="toggle-label">Detection:</span>
@@ -153,6 +158,26 @@
       <div class="toolbar">
         <input type="text" id="history-search-input" placeholder="Search history..." />
         <button id="clear-history-btn" class="action-btn secondary small">Clear History</button>
+      </div>
+      <div class="toolbar history-filters">
+        <select id="history-domain" title="Filter by domain">
+          <option value="">All domains</option>
+        </select>
+        <select id="history-range" title="Filter by date">
+          <option value="0">All time</option>
+          <option value="1">Last 24 hours</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+        <select id="history-type" title="Filter by type">
+          <option value="">All types</option>
+          <option value="m3u8">HLS</option>
+          <option value="mpd">DASH</option>
+          <option value="mp4">MP4</option>
+          <option value="webm">WebM</option>
+          <option value="audio">Audio</option>
+        </select>
+        <span id="history-count" class="history-count"></span>
       </div>
 
       <div id="history-container">
@@ -410,6 +435,13 @@
   <script src="manifest-parser.js"></script>
   <script src="download-manager.js"></script>
   <script src="stream-deduplicator.js"></script>
-  <script src="popup.js"></script>
+  <script src="popup-core.js"></script>
+  <script src="popup-streams.js"></script>
+  <script src="popup-history.js"></script>
+  <script src="popup-stats.js"></script>
+  <script src="popup-downloads.js"></script>
+  <script src="popup-recordings.js"></script>
+  <script src="popup-batch.js"></script>
+  <script src="popup-quality.js"></script>
 </body>
 </html>

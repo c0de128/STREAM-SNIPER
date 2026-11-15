@@ -38,16 +38,24 @@ const MetadataExtractor = {
         return this.metadataCache.get(cacheKey);
       }
 
-      // Execute content script to extract metadata
-      const results = await browser.tabs.executeScript(tabId, {
-        code: `(${this.pageMetadataScript.toString()})()`
-      });
-
-      if (!results || results.length === 0) {
-        return this.getDefaultMetadata();
+      // Execute content script to extract metadata (tabs.executeScript in MV2, scripting API in MV3)
+      let pageMetadata;
+      if (browser.scripting && browser.scripting.executeScript) {
+        const results = await browser.scripting.executeScript({
+          target: { tabId },
+          func: this.pageMetadataScript
+        });
+        pageMetadata = results && results[0] && results[0].result;
+      } else {
+        const results = await browser.tabs.executeScript(tabId, {
+          code: `(${this.pageMetadataScript.toString()})()`
+        });
+        pageMetadata = results && results[0];
       }
 
-      const pageMetadata = results[0];
+      if (!pageMetadata) {
+        return this.getDefaultMetadata();
+      }
 
       // Build metadata object
       const metadata = {

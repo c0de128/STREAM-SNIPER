@@ -4,6 +4,6 @@
   "path": "/path/to/ytdlp-bridge.py",
   "type": "stdio",
   "allowed_extensions": [
-    "{EXTENSION_ID}"
+    "stream-sniper@c0de128.github.io"
   ]
 }

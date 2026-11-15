@@ -5,6 +5,29 @@ const totalSteps = 3;
 
 // Initialize wizard
 document.addEventListener('DOMContentLoaded', function() {
+  // Copy buttons: extension pages block inline onclick handlers (CSP), so bind here.
+  // data-copy="<id>" copies that element's text; otherwise copy the sibling <code>/<pre>.
+  document.addEventListener('click', function(event) {
+    const button = event.target.closest('.copy-btn');
+    if (!button) return;
+    event.preventDefault();
+    let text = '';
+    if (button.dataset.copy) {
+      const source = document.getElementById(button.dataset.copy);
+      text = source ? source.textContent : '';
+    } else {
+      const onclick = button.getAttribute('onclick') || '';
+      const match = onclick.match(/copyCommand\(this,\s*'([\s\S]*)'\)\s*$/);
+      if (match) {
+        text = match[1].replace(/\n/g, '\n').replace(/\'/g, "'");
+      } else {
+        const block = button.closest('.code-block') || button.parentElement;
+        const code = block && block.querySelector('code, pre');
+        text = code ? code.textContent : '';
+      }
+    }
+    if (text) copyCommand(button, text.trim());
+  });
   // Apply dark mode if enabled
   loadTheme();
 
